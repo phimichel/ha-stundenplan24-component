@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import Platform
@@ -10,6 +9,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN
+from .coordinator import Stundenplan24Coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -26,13 +26,18 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Stundenplan24 from a config entry."""
     hass.data.setdefault(DOMAIN, {})
 
-    # TODO: Initialize coordinator here
-    # coordinator = Stundenplan24Coordinator(hass, entry)
-    # await coordinator.async_config_entry_first_refresh()
-    # hass.data[DOMAIN][entry.entry_id] = coordinator
+    # Initialize coordinator
+    coordinator = Stundenplan24Coordinator(hass, entry)
+    await coordinator.async_config_entry_first_refresh()
+
+    # Store coordinator
+    hass.data[DOMAIN][entry.entry_id] = coordinator
 
     # Forward the setup to the sensor platform
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+
+    # Register shutdown handler
+    entry.async_on_unload(coordinator.async_shutdown)
 
     return True
 
@@ -42,7 +47,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        hass.data[DOMAIN].pop(entry.entry_id, None)
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        await coordinator.async_shutdown()
 
     return unload_ok
 

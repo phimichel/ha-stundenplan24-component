@@ -90,7 +90,7 @@ stundenplan24/
 
 ### Commit Messages
 - **KEINE Claude/Claude Code Referenzen** in Commit-Nachrichten
-- Klare, beschreibende Commit-Nachrichten in Deutsch oder Englisch
+- Klare, beschreibende Commit-Nachrichten in Englisch
 - Format: `<type>: <kurze Beschreibung>` gefolgt von optionalem Body
 - Types: feat, fix, docs, style, refactor, test, chore
 - Beispiel:
@@ -112,3 +112,4 @@ stundenplan24/
 - Home Assistant Developer Docs: https://developers.home-assistant.io/
 - Custom Integration Tutorial: https://developers.home-assistant.io/docs/creating_component_index
 - Config Flow Docs: https://developers.home-assistant.io/docs/config_entries_config_flow_handler
+- Example for customer sensor: https://github.com/home-assistant/example-custom-config/tree/master/custom_components/example_sensor

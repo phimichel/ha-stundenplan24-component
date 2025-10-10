@@ -4,12 +4,16 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import aiohttp
+from stundenplan24_py.client import IndiwareStundenplanerClient
+from stundenplan24_py.endpoints import Hosting, Credentials
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_PASSWORD,
@@ -34,12 +38,47 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    # TODO: Implement actual validation with stundenplan24-wrapper
-    # For now, just accept any input
+    session = async_get_clientsession(hass)
 
-    # If validation fails, raise exception
-    # raise InvalidAuth
-    # raise CannotConnect
+    # Create credentials
+    credentials = Credentials(
+        username=data[CONF_USERNAME],
+        password=data[CONF_PASSWORD],
+    )
+
+    # Create hosting object
+    hosting = Hosting(
+        url=data[CONF_SCHOOL_URL],
+        credentials=credentials,
+    )
+
+    # Try to create client and fetch data
+    try:
+        client = IndiwareStundenplanerClient(
+            hosting=hosting,
+            session=session,
+        )
+
+        # Try to fetch available dates to validate connection
+        if client.indiware_mobil_clients:
+            await client.indiware_mobil_clients[0].fetch_dates()
+        elif client.substitution_plan_clients:
+            # Try substitution plan if no mobil client available
+            await client.substitution_plan_clients[0].get_metadata()
+        else:
+            raise CannotConnect("No clients available")
+
+        await client.close()
+
+    except aiohttp.ClientResponseError as err:
+        if err.status == 401:
+            raise InvalidAuth from err
+        raise CannotConnect from err
+    except aiohttp.ClientError as err:
+        raise CannotConnect from err
+    except Exception as err:
+        _LOGGER.exception("Unexpected error during validation")
+        raise CannotConnect from err
 
     # Return info that you want to store in the config entry.
     return {"title": data[CONF_SCHOOL_URL]}

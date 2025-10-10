@@ -1,7 +1,7 @@
 # Development dependencies for Stundenplan24 HA Integration
 
 # Home Assistant
-homeassistant>=2024.1.0
+homeassistant>=2025.1.0
 
 # stundenplan24 wrapper library
 # TODO: Update version when library is published
