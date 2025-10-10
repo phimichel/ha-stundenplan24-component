@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  # Development Container für Python Development
+  devcontainer:
+    image: mcr.microsoft.com/devcontainers/python:3.11-bullseye
+    volumes:
+      - ..:/workspace:cached
+    command: /bin/sh -c "while sleep 1000; do :; done"
+    networks:
+      - ha-network
+    environment:
+      - PYTHONPATH=/workspace
+
+  # Home Assistant Container für Testing
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: ha-stundenplan24-dev
+    restart: unless-stopped
+    privileged: true
+    networks:
+      - ha-network
+    ports:
+      - "8123:8123"
+    volumes:
+      - ../config:/config
+      - ../custom_components:/config/custom_components:ro
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      - TZ=Europe/Berlin
+
+networks:
+  ha-network:
+    driver: bridge

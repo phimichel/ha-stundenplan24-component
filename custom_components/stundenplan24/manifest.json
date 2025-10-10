@@ -1,0 +1,12 @@
+{
+  "domain": "stundenplan24",
+  "name": "Stundenplan24",
+  "codeowners": ["@phimichel"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/phimichel/ha-stundenplan24-component",
+  "iot_class": "cloud_polling",
+  "issue_tracker": "https://github.com/phimichel/ha-stundenplan24-component/issues",
+  "requirements": ["stundenplan24-wrapper>=0.1.0"],
+  "version": "0.1.0"
+}

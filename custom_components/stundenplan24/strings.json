@@ -1,0 +1,23 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Stundenplan24 Setup",
+        "description": "Enter your Stundenplan24 credentials",
+        "data": {
+          "school_url": "School URL",
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to Stundenplan24",
+      "invalid_auth": "Invalid authentication",
+      "unknown": "Unexpected error occurred"
+    },
+    "abort": {
+      "already_configured": "This Stundenplan24 account is already configured"
+    }
+  }
+}

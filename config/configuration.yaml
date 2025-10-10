@@ -1,0 +1,58 @@
+# Home Assistant Development Configuration
+# für stundenplan24 Custom Component Testing
+
+homeassistant:
+  name: Stundenplan24 Dev
+  latitude: 51.5074
+  longitude: -0.1278
+  elevation: 0
+  unit_system: metric
+  currency: EUR
+  country: DE
+  time_zone: Europe/Berlin
+
+  # Erlaube externe Verzeichnisse für Custom Components
+  allowlist_external_dirs:
+    - /config/custom_components
+
+# Logging für Debugging
+logger:
+  default: info
+  logs:
+    custom_components.stundenplan24: debug
+    homeassistant.components.sensor: info
+
+# Frontend aktivieren
+frontend:
+  themes: !include_dir_merge_named themes
+
+# Lovelace UI
+lovelace:
+  mode: yaml
+
+# Config via UI
+config:
+
+# HTTP Server
+http:
+  use_x_forwarded_for: true
+  trusted_proxies:
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+
+# History & Recorder (für Testing)
+recorder:
+  db_url: sqlite:////config/home-assistant_v2.db
+  purge_keep_days: 3
+
+history:
+
+# System Health
+system_health:
+
+# My Home Assistant
+my:
+
+# Beispiel: Aktiviere die stundenplan24 Integration
+# (wird später über UI konfiguriert)
+# stundenplan24:

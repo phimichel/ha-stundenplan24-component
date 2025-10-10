@@ -1,0 +1,8 @@
+# Ignoriere alle generierten Home Assistant Dateien
+*
+!.gitignore
+!configuration.yaml
+!README.md
+
+# Erlaube themes Verzeichnis falls vorhanden
+!themes/

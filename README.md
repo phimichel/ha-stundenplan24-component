@@ -112,6 +112,12 @@ Jeder Sensor bietet zusätzliche Informationen als Attribute:
 
 Diese Integration wird mit einem Dev Container entwickelt. Siehe [CLAUDE.md](CLAUDE.md) und [PROJECT_PLAN.md](PROJECT_PLAN.md) für Details.
 
+### Voraussetzungen
+
+- Docker Desktop
+- Visual Studio Code
+- VS Code Extension: "Dev Containers" (ms-vscode-remote.remote-containers)
+
 ### Dev Container Setup
 
 ```bash
@@ -119,15 +125,67 @@ Diese Integration wird mit einem Dev Container entwickelt. Siehe [CLAUDE.md](CLA
 git clone git@github.com:phimichel/ha-stundenplan24-component.git
 cd ha-stundenplan24-component
 
-# Dev Container starten (in VS Code)
-# - Installiere die "Dev Containers" Extension
-# - Öffne Command Palette: "Dev Containers: Reopen in Container"
+# In VS Code öffnen
+code .
+
+# Dev Container starten
+# 1. VS Code Command Palette öffnen (Cmd/Ctrl + Shift + P)
+# 2. "Dev Containers: Reopen in Container" ausführen
+# 3. Warten bis Container gebuildet ist
+```
+
+Der Dev Container startet automatisch:
+- **Python Development Container** - Für Code-Entwicklung mit allen notwendigen Tools
+- **Home Assistant Container** - Läuft auf Port 8123 für Testing
+
+### Entwicklungs-Workflow
+
+1. **Änderungen an der Integration vornehmen**
+   - Dateien in `custom_components/stundenplan24/` bearbeiten
+   - Änderungen werden automatisch in den HA Container gemountet
+
+2. **Home Assistant neu laden**
+   - Im Browser: http://localhost:8123
+   - Entwicklertools → YAML → "Alle YAML-Konfigurationen neu laden"
+   - Oder: Home Assistant Container neu starten
+
+3. **Integration testen**
+   - Einstellungen → Geräte & Dienste → Integration hinzufügen
+   - "Stundenplan24" suchen und konfigurieren
+
+4. **Logs prüfen**
+   ```bash
+   # Im Dev Container Terminal
+   docker logs ha-stundenplan24-dev -f
+   ```
+
+### Projektstruktur
+
+```
+.
+├── .devcontainer/
+│   ├── devcontainer.json      # Dev Container Konfiguration
+│   └── docker-compose.yml     # Docker Services (HA + Dev)
+├── config/
+│   └── configuration.yaml     # Home Assistant Config
+├── custom_components/
+│   └── stundenplan24/         # Die Integration
+│       ├── __init__.py
+│       ├── manifest.json
+│       ├── config_flow.py
+│       ├── const.py
+│       ├── sensor.py
+│       ├── strings.json
+│       └── translations/
+│           └── de.json
+├── requirements-dev.txt       # Python Dependencies
+└── README.md
 ```
 
 ### Tests ausführen
 
 ```bash
-# Unit Tests
+# Unit Tests (noch nicht implementiert)
 pytest
 
 # Integration Tests
@@ -135,7 +193,18 @@ pytest tests/integration/
 
 # Mit Coverage
 pytest --cov=custom_components.stundenplan24
+
+# Linting
+ruff check .
+black --check .
 ```
+
+### Debugging
+
+VS Code ist bereits für Debugging konfiguriert:
+- Setze Breakpoints in Python-Dateien
+- Drücke F5 oder nutze das Debug Panel
+- Der Debugger verbindet sich mit Home Assistant
 
 ## 🤝 Mitwirken
 
