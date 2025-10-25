@@ -30,7 +30,13 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up the sensor platform."""
-    coordinator: Stundenplan24Coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    entry_data = hass.data[DOMAIN][config_entry.entry_id]
+
+    # Handle both coordinator-only and dict storage
+    if isinstance(entry_data, Stundenplan24Coordinator):
+        coordinator = entry_data
+    else:
+        coordinator = entry_data["coordinator"]
 
     sensors = [
         Stundenplan24SubstitutionsTodaySensor(coordinator),

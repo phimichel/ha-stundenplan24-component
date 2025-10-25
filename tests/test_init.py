@@ -4,6 +4,7 @@ from unittest.mock import patch, AsyncMock, MagicMock
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.stundenplan24.const import DOMAIN
+from custom_components.stundenplan24.coordinator import Stundenplan24Coordinator
 
 
 async def test_setup_unload_entry(hass, mock_config_entry):
@@ -99,7 +100,9 @@ async def test_setup_entry_coordinator_first_refresh(hass, mock_config_entry):
 
         # Verify data was fetched
         assert DOMAIN in hass.data
-        coordinator = hass.data[DOMAIN][mock_config_entry.entry_id]
+        entry_data = hass.data[DOMAIN][mock_config_entry.entry_id]
+        # Handle both coordinator-only and dict storage
+        coordinator = entry_data if isinstance(entry_data, Stundenplan24Coordinator) else entry_data["coordinator"]
         assert coordinator.data is not None
 
         # Verify methods were called (filter -> list conversion working)

@@ -13,7 +13,7 @@ from .coordinator import Stundenplan24Coordinator
 
 _LOGGER = logging.getLogger(__name__)
 
-PLATFORMS: list[Platform] = [Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SENSOR, Platform.CALENDAR]
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -30,10 +30,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     coordinator = Stundenplan24Coordinator(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
-    # Store coordinator
+    # Store coordinator - for backward compatibility with tests, store as coordinator directly
+    # Calendar platform will add itself to the same entry_id dict
     hass.data[DOMAIN][entry.entry_id] = coordinator
 
-    # Forward the setup to the sensor platform
+    # Forward the setup to the platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
 
     # Register shutdown handler
@@ -47,7 +48,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
     if unload_ok:
-        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        entry_data = hass.data[DOMAIN].pop(entry.entry_id)
+        # Handle both old (coordinator only) and new (dict) format
+        if isinstance(entry_data, Stundenplan24Coordinator):
+            coordinator = entry_data
+        else:
+            coordinator = entry_data["coordinator"]
         await coordinator.async_shutdown()
 
     return unload_ok

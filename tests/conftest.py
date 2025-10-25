@@ -137,3 +137,81 @@ def mock_indiware_mobil_plan():
     plan.forms = [form_5a, form_10b]
 
     return plan
+
+
+@pytest.fixture
+def mock_timetable_with_lessons():
+    """Mock IndiwareMobilPlan with actual lessons for calendar tests."""
+    from datetime import time, date
+
+    plan_response = MagicMock()
+
+    # Create proper XML content
+    xml_content = """<?xml version="1.0" encoding="UTF-8"?>
+<VpMobil>
+  <Kopf>
+    <planart>1</planart>
+    <zeitstempel>25.01.2025, 08:00</zeitstempel>
+    <DatumPlan>Samstag, 25. Januar 2025</DatumPlan>
+    <datei>PlanKl20250125.xml</datei>
+    <woche>4</woche>
+    <tageprowoche>5</tageprowoche>
+  </Kopf>
+  <Klassen>
+    <Kl>
+      <Kurz>5a</Kurz>
+      <KlStunden>
+        <KlSt ZeitVon="08:00" ZeitBis="08:45">1</KlSt>
+        <KlSt ZeitVon="08:50" ZeitBis="09:35">2</KlSt>
+        <KlSt ZeitVon="09:55" ZeitBis="10:40">3</KlSt>
+        <KlSt ZeitVon="10:45" ZeitBis="11:30">4</KlSt>
+      </KlStunden>
+      <Kurse />
+      <Unterricht />
+      <Pl>
+        <Std>
+          <St>1</St>
+          <Beginn>08:00</Beginn>
+          <Ende>08:45</Ende>
+          <Fa FaAe="">Ma</Fa>
+          <Le LeAe="">Müller</Le>
+          <Ra RaAe="">101</Ra>
+          <If></If>
+        </Std>
+        <Std>
+          <St>2</St>
+          <Beginn>08:50</Beginn>
+          <Ende>09:35</Ende>
+          <Fa FaAe="">De</Fa>
+          <Le LeAe="">Schmidt</Le>
+          <Ra RaAe="">102</Ra>
+          <If></If>
+        </Std>
+        <Std>
+          <St>3</St>
+          <Beginn>09:55</Beginn>
+          <Ende>10:40</Ende>
+          <Fa FaAe="">En</Fa>
+          <Le LeAe="">Meyer</Le>
+          <Ra RaAe="">103</Ra>
+          <If></If>
+        </Std>
+        <Std>
+          <St>4</St>
+          <Beginn>10:45</Beginn>
+          <Ende>11:30</Ende>
+          <Fa FaAe="">Sp</Fa>
+          <Le LeAe="">Weber</Le>
+          <Ra RaAe="">Turnhalle</Ra>
+          <If></If>
+        </Std>
+      </Pl>
+      <Klausuren />
+      <Aufsichten />
+    </Kl>
+  </Klassen>
+  <ZusatzInfo />
+</VpMobil>"""
+
+    plan_response.content = xml_content
+    return plan_response
