@@ -1,0 +1,4 @@
+# Mark vendored dependencies
+custom_components/stundenplan24/stundenplan24_py/** linguist-vendored
+custom_components/stundenplan24/pipifax_proxy_manager/** linguist-vendored
+custom_components/stundenplan24/pipifax_io/** linguist-vendored

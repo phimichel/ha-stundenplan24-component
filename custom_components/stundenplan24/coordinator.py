@@ -5,13 +5,10 @@ from datetime import datetime, timedelta
 import logging
 from typing import Any
 
-import aiohttp
-from stundenplan24_py.client import IndiwareStundenplanerClient
-from stundenplan24_py.endpoints import Hosting, Credentials
+from .stundenplan24_py.client import IndiwareStundenplanerClient, Hosting
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
@@ -50,26 +47,17 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
 
     async def _async_setup(self) -> None:
         """Set up the coordinator."""
-        # Create aiohttp session
-        session = async_get_clientsession(self.hass)
-
-        # Create credentials
-        credentials = Credentials(
-            username=self.username,
-            password=self.password,
-        )
-
-        # Create hosting object
-        hosting = Hosting(
-            url=self.school_url,
-            credentials=credentials,
-        )
+        # Create hosting object using deserialize method
+        hosting = Hosting.deserialize({
+            "creds": {
+                "username": self.username,
+                "password": self.password,
+            },
+            "endpoints": self.school_url,
+        })
 
         # Initialize client
-        self.client = IndiwareStundenplanerClient(
-            hosting=hosting,
-            session=session,
-        )
+        self.client = IndiwareStundenplanerClient(hosting=hosting)
 
         _LOGGER.debug("Stundenplan24 client initialized for %s", self.school_url)
 
@@ -85,6 +73,10 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
         try:
             data = {}
 
+            # Convert filter objects to lists
+            mobil_clients = list(self.client.indiware_mobil_clients)
+            substitution_clients = list(self.client.substitution_plan_clients)
+
             # Fetch substitution plan for today
             today = datetime.now().date()
             tomorrow = today + timedelta(days=1)
@@ -92,9 +84,9 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
             _LOGGER.debug("Fetching substitution plans for %s and %s", today, tomorrow)
 
             # Fetch today's substitution plan (student view)
-            if self.client.substitution_plan_clients:
+            if substitution_clients:
                 try:
-                    today_plan = await self.client.substitution_plan_clients[0].fetch_plan(
+                    today_plan = await substitution_clients[0].fetch_plan(
                         date_or_filename=today
                     )
                     data["substitution_today"] = today_plan
@@ -105,7 +97,7 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
 
                 # Fetch tomorrow's substitution plan
                 try:
-                    tomorrow_plan = await self.client.substitution_plan_clients[0].fetch_plan(
+                    tomorrow_plan = await substitution_clients[0].fetch_plan(
                         date_or_filename=tomorrow
                     )
                     data["substitution_tomorrow"] = tomorrow_plan
@@ -115,15 +107,15 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                     data["substitution_tomorrow"] = None
 
             # Fetch Indiware Mobil plan (timetable)
-            if self.client.indiware_mobil_clients:
+            if mobil_clients:
                 try:
                     # Get available dates first
-                    available_dates = await self.client.indiware_mobil_clients[0].fetch_dates()
+                    available_dates = await mobil_clients[0].fetch_dates()
 
                     if available_dates:
                         # Fetch the most recent plan
-                        latest_file = available_dates[0]["filename"]
-                        timetable = await self.client.indiware_mobil_clients[0].fetch_plan(
+                        latest_file = list(available_dates.keys())[0]
+                        timetable = await mobil_clients[0].fetch_plan(
                             date_or_filename=latest_file
                         )
                         data["timetable"] = timetable

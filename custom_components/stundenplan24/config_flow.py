@@ -5,15 +5,13 @@ import logging
 from typing import Any
 
 import aiohttp
-from stundenplan24_py.client import IndiwareStundenplanerClient
-from stundenplan24_py.endpoints import Hosting, Credentials
+from .stundenplan24_py.client import IndiwareStundenplanerClient, Hosting
 import voluptuous as vol
 
 from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
-from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .const import (
     CONF_PASSWORD,
@@ -38,33 +36,28 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
 
     Data has the keys from STEP_USER_DATA_SCHEMA with values provided by the user.
     """
-    session = async_get_clientsession(hass)
-
-    # Create credentials
-    credentials = Credentials(
-        username=data[CONF_USERNAME],
-        password=data[CONF_PASSWORD],
-    )
-
-    # Create hosting object
-    hosting = Hosting(
-        url=data[CONF_SCHOOL_URL],
-        credentials=credentials,
-    )
+    # Create hosting object using deserialize method
+    hosting = Hosting.deserialize({
+        "creds": {
+            "username": data[CONF_USERNAME],
+            "password": data[CONF_PASSWORD],
+        },
+        "endpoints": data[CONF_SCHOOL_URL],
+    })
 
     # Try to create client and fetch data
     try:
-        client = IndiwareStundenplanerClient(
-            hosting=hosting,
-            session=session,
-        )
+        client = IndiwareStundenplanerClient(hosting=hosting)
 
         # Try to fetch available dates to validate connection
-        if client.indiware_mobil_clients:
-            await client.indiware_mobil_clients[0].fetch_dates()
-        elif client.substitution_plan_clients:
+        mobil_clients = list(client.indiware_mobil_clients)
+        substitution_clients = list(client.substitution_plan_clients)
+
+        if mobil_clients:
+            await mobil_clients[0].fetch_dates()
+        elif substitution_clients:
             # Try substitution plan if no mobil client available
-            await client.substitution_plan_clients[0].get_metadata()
+            await substitution_clients[0].get_metadata()
         else:
             raise CannotConnect("No clients available")
 

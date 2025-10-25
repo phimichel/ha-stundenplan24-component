@@ -1,11 +1,14 @@
 # Development dependencies for Stundenplan24 HA Integration
 
 # Home Assistant
-homeassistant>=2025.1.0
+homeassistant>=2024.1.0
 
-# stundenplan24 wrapper library
-# TODO: Update version when library is published
-git+https://github.com/phimichel/stundenplan24-wrapper.git
+# stundenplan24 wrapper library dependencies (vendored, so only external deps needed)
+pytz~=2025.2
+curl_cffi
+urllib3[socks]
+psutil
+bson
 
 # Testing
 pytest>=7.4.0

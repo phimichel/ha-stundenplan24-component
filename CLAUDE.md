@@ -13,6 +13,27 @@ Entwicklung einer Custom Component für Home Assistant zur Anzeige von Stundenpl
   - Automatisches Löschen von Plänen älter als 10 Tage
   - Status: "probably not complete" - eventuell Erweiterungen nötig
 
+### Dependency Vendoring (Temporär)
+
+**Status:** Aktuell sind die Dependencies lokal vendored, da sie noch nicht auf PyPI veröffentlicht sind.
+
+**Vendored Packages:**
+- `custom_components/stundenplan24/stundenplan24_py/` - stundenplan24-wrapper
+- `custom_components/stundenplan24/pipifax_proxy_manager/` - Proxy Manager Dependency
+- `custom_components/stundenplan24/pipifax_io/` - I/O Utilities Dependency
+
+**Externe Dependencies in manifest.json:**
+- pytz~=2025.2
+- curl_cffi
+- urllib3[socks]
+- psutil
+- bson
+
+**TODO:** Sobald stundenplan24-wrapper auf PyPI veröffentlicht ist:
+1. Vendored code entfernen
+2. `manifest.json` requirements updaten zu: `["stundenplan24-wrapper>=x.y.z"]`
+3. Imports anpassen von `.stundenplan24_py` zu `stundenplan24_py`
+
 ### Verfügbare Ansichten
 **Schüler:**
 - Indiware Mobil (Student)
@@ -59,23 +80,34 @@ Zu klären:
 5. Benachrichtigungen bei Stundenplanänderungen?
 6. Kalender-Integration?
 
-## Projekt-Struktur (geplant)
+## Projekt-Struktur
 ```
 stundenplan24/
 ├── custom_components/
 │   └── stundenplan24/
-│       ├── __init__.py          # Integration Setup
-│       ├── manifest.json        # Component Metadata
-│       ├── config_flow.py       # UI Configuration
-│       ├── coordinator.py       # Data Update Coordinator
-│       ├── sensor.py           # Sensor Entities
-│       ├── const.py            # Constants
-│       └── strings.json        # Translations
+│       ├── __init__.py                 # Integration Setup
+│       ├── manifest.json               # Component Metadata
+│       ├── config_flow.py              # UI Configuration
+│       ├── coordinator.py              # Data Update Coordinator
+│       ├── sensor.py                   # Sensor Entities
+│       ├── const.py                    # Constants
+│       ├── strings.json                # Translations
+│       ├── stundenplan24_py/           # Vendored: stundenplan24-wrapper
+│       ├── pipifax_proxy_manager/      # Vendored: Proxy Manager
+│       └── pipifax_io/                 # Vendored: I/O Utilities
 ├── .devcontainer/
-│   ├── devcontainer.json       # Dev Container Config
-│   └── docker-compose.yml      # HA Container Setup
-├── tests/                      # Unit Tests
-└── README.md                   # Dokumentation
+│   ├── devcontainer.json               # Dev Container Config
+│   └── docker-compose.yml              # HA Container Setup
+├── tests/
+│   ├── __init__.py
+│   ├── conftest.py                     # Test Fixtures
+│   ├── test_config_flow.py             # Config Flow Tests
+│   ├── test_coordinator.py             # Coordinator Tests
+│   └── test_init.py                    # Integration Setup Tests
+├── .venv/                              # Virtual Environment (local only)
+├── pytest.ini                          # Pytest Configuration
+├── requirements-dev.txt                # Development Dependencies
+└── README.md                           # Dokumentation
 ```
 
 ## Entwicklungs-Workflow
