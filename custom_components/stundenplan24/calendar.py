@@ -149,18 +149,31 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
                     summary = str(lesson.subject) if lesson.subject else "Unbekannt"
 
                     description_parts = []
-                    if lesson.teacher and str(lesson.teacher):
-                        teacher_str = str(lesson.teacher)
-                        if teacher_str and teacher_str != "None":
-                            description_parts.append(f"Lehrer: {teacher_str}")
-                    if lesson.room and str(lesson.room):
-                        room_str = str(lesson.room)
-                        if room_str and room_str != "None":
-                            description_parts.append(f"Raum: {room_str}")
-                    if lesson.information and str(lesson.information):
-                        info_str = str(lesson.information)
-                        if info_str and info_str != "None":
-                            description_parts.append(f"Info: {info_str}")
+
+                    # Safely convert lesson attributes to strings
+                    if lesson.teacher:
+                        try:
+                            teacher_str = str(lesson.teacher)
+                            if teacher_str and teacher_str != "None":
+                                description_parts.append(f"Lehrer: {teacher_str}")
+                        except (TypeError, ValueError):
+                            pass
+
+                    if lesson.room:
+                        try:
+                            room_str = str(lesson.room)
+                            if room_str and room_str != "None":
+                                description_parts.append(f"Raum: {room_str}")
+                        except (TypeError, ValueError):
+                            pass
+
+                    if lesson.information:
+                        try:
+                            info_str = str(lesson.information)
+                            if info_str and info_str != "None":
+                                description_parts.append(f"Info: {info_str}")
+                        except (TypeError, ValueError):
+                            pass
 
                     description = "\n".join(description_parts) if description_parts else None
 
