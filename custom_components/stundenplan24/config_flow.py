@@ -14,6 +14,7 @@ from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
 
 from .const import (
+    CONF_FORM,
     CONF_PASSWORD,
     CONF_SCHOOL_URL,
     CONF_USERNAME,
@@ -82,6 +83,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> OptionsFlow:
+        """Get the options flow for this handler."""
+        return OptionsFlow(config_entry)
+
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
@@ -112,3 +118,88 @@ class CannotConnect(HomeAssistantError):
 
 class InvalidAuth(HomeAssistantError):
     """Error to indicate there is invalid auth."""
+
+
+class OptionsFlow(config_entries.OptionsFlow):
+    """Handle options flow for Stundenplan24."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options."""
+        errors: dict[str, str] = {}
+
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Load available forms from API
+        try:
+            forms = await self._get_available_forms()
+        except CannotConnect:
+            errors["base"] = "cannot_connect"
+            forms = []
+        except NoFormClient:
+            errors["base"] = "no_form_client"
+            forms = []
+        except Exception:  # pylint: disable=broad-except
+            _LOGGER.exception("Unexpected exception")
+            errors["base"] = "unknown"
+            forms = []
+
+        # Create schema with form selection
+        options_schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_FORM,
+                    default=self.config_entry.options.get(CONF_FORM, ""),
+                ): vol.In(forms) if forms else str,
+            }
+        )
+
+        return self.async_show_form(
+            step_id="init", data_schema=options_schema, errors=errors
+        )
+
+    async def _get_available_forms(self) -> list[str]:
+        """Get available forms from the API."""
+        # Create hosting object using config entry data
+        hosting = Hosting.deserialize({
+            "creds": {
+                "username": self.config_entry.data[CONF_USERNAME],
+                "password": self.config_entry.data[CONF_PASSWORD],
+            },
+            "endpoints": self.config_entry.data[CONF_SCHOOL_URL],
+        })
+
+        client = IndiwareStundenplanerClient(hosting=hosting)
+
+        if client.form_plan_client is None:
+            await client.close()
+            raise NoFormClient("No form plan client available")
+
+        try:
+            # Fetch a plan to get available forms
+            plan_response = await client.form_plan_client.fetch_plan()
+
+            # Parse the XML to get forms
+            from .stundenplan24_py.indiware_mobil import IndiwareMobilPlan
+            import xml.etree.ElementTree as ET
+
+            root = ET.fromstring(plan_response.content)
+            plan = IndiwareMobilPlan.from_xml(root)
+
+            forms = [form.short_name for form in plan.forms]
+            await client.close()
+
+            return forms
+        except Exception as err:
+            await client.close()
+            raise CannotConnect from err
+
+
+class NoFormClient(HomeAssistantError):
+    """Error to indicate no form client is available."""

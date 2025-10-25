@@ -1,10 +1,10 @@
 """Test the Stundenplan24 config flow."""
 import pytest
-from unittest.mock import patch, AsyncMock
+from unittest.mock import patch, AsyncMock, MagicMock
 from homeassistant import config_entries, data_entry_flow
 import aiohttp
 
-from custom_components.stundenplan24.const import DOMAIN
+from custom_components.stundenplan24.const import DOMAIN, CONF_FORM
 from custom_components.stundenplan24.config_flow import CannotConnect, InvalidAuth
 
 
@@ -200,3 +200,84 @@ async def test_form_unexpected_exception(hass, mock_hosting):
 
     assert result2["type"] == data_entry_flow.FlowResultType.FORM
     assert result2["errors"] == {"base": "cannot_connect"}
+
+
+# Options Flow Tests
+
+
+async def test_options_flow_init(hass, mock_config_entry):
+    """Test options flow initialization."""
+    mock_config_entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+
+    assert result["type"] == data_entry_flow.FlowResultType.FORM
+    assert result["step_id"] == "init"
+
+
+async def test_options_flow_select_form(hass, mock_config_entry, mock_indiware_mobil_plan):
+    """Test selecting a form in options flow."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.stundenplan24.config_flow.IndiwareStundenplanerClient"
+    ) as mock_client:
+        # Mock the form plan client to return available forms
+        mock_mobil = AsyncMock()
+        mock_mobil.fetch_plan = AsyncMock(return_value=mock_indiware_mobil_plan)
+
+        client_instance = mock_client.return_value
+        client_instance.form_plan_client = mock_mobil
+        client_instance.close = AsyncMock()
+
+        # Initialize options flow
+        result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+
+        assert result["type"] == data_entry_flow.FlowResultType.FORM
+        assert result["step_id"] == "init"
+
+        # Configure with form selection
+        result2 = await hass.config_entries.options.async_configure(
+            result["flow_id"],
+            user_input={CONF_FORM: "5a"}
+        )
+
+        assert result2["type"] == data_entry_flow.FlowResultType.CREATE_ENTRY
+        assert result2["data"][CONF_FORM] == "5a"
+
+
+async def test_options_flow_no_form_client(hass, mock_config_entry):
+    """Test options flow when no form client is available."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.stundenplan24.config_flow.IndiwareStundenplanerClient"
+    ) as mock_client:
+        client_instance = mock_client.return_value
+        client_instance.form_plan_client = None
+        client_instance.close = AsyncMock()
+
+        result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+
+        assert result["type"] == data_entry_flow.FlowResultType.FORM
+        assert result["errors"] == {"base": "no_form_client"}
+
+
+async def test_options_flow_connection_error(hass, mock_config_entry):
+    """Test options flow handles connection errors."""
+    mock_config_entry.add_to_hass(hass)
+
+    with patch(
+        "custom_components.stundenplan24.config_flow.IndiwareStundenplanerClient"
+    ) as mock_client:
+        mock_mobil = AsyncMock()
+        mock_mobil.fetch_plan = AsyncMock(side_effect=aiohttp.ClientError("Connection failed"))
+
+        client_instance = mock_client.return_value
+        client_instance.form_plan_client = mock_mobil
+        client_instance.close = AsyncMock()
+
+        result = await hass.config_entries.options.async_init(mock_config_entry.entry_id)
+
+        assert result["type"] == data_entry_flow.FlowResultType.FORM
+        assert result["errors"] == {"base": "cannot_connect"}

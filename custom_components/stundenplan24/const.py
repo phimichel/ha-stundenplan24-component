@@ -7,6 +7,7 @@ CONF_SCHOOL_URL = "school_url"
 CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_STUDENT_ID = "student_id"
+CONF_FORM = "form"
 
 # Default values
 DEFAULT_SCAN_INTERVAL = 30  # minutes

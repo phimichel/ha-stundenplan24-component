@@ -115,3 +115,25 @@ def mock_hosting():
         mock_hosting_instance = MagicMock()
         mock_hosting_class.deserialize.return_value = mock_hosting_instance
         yield mock_hosting_class
+
+
+@pytest.fixture
+def mock_indiware_mobil_plan():
+    """Mock IndiwareMobilPlan with forms."""
+    plan = MagicMock()
+
+    # Mock form 5a
+    form_5a = MagicMock()
+    form_5a.short_name = "5a"
+    form_5a.lessons = []
+    form_5a.periods = {}
+
+    # Mock form 10b
+    form_10b = MagicMock()
+    form_10b.short_name = "10b"
+    form_10b.lessons = []
+    form_10b.periods = {}
+
+    plan.forms = [form_5a, form_10b]
+
+    return plan

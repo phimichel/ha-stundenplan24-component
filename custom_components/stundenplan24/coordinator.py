@@ -15,6 +15,7 @@ from homeassistant.helpers.update_coordinator import (
 )
 
 from .const import (
+    CONF_FORM,
     CONF_PASSWORD,
     CONF_SCHOOL_URL,
     CONF_USERNAME,
@@ -115,9 +116,26 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                     if available_dates:
                         # Fetch the most recent plan
                         latest_file = list(available_dates.keys())[0]
-                        timetable = await mobil_clients[0].fetch_plan(
+                        plan_response = await mobil_clients[0].fetch_plan(
                             date_or_filename=latest_file
                         )
+
+                        # Parse XML to IndiwareMobilPlan
+                        from .stundenplan24_py.indiware_mobil import IndiwareMobilPlan
+                        import xml.etree.ElementTree as ET
+
+                        root = ET.fromstring(plan_response.content)
+                        timetable = IndiwareMobilPlan.from_xml(root)
+
+                        # Filter to selected form if configured
+                        selected_form = self.entry.options.get(CONF_FORM)
+                        if selected_form:
+                            timetable.forms = [
+                                form for form in timetable.forms
+                                if form.short_name == selected_form
+                            ]
+                            _LOGGER.debug("Filtered timetable to form: %s", selected_form)
+
                         data["timetable"] = timetable
                         _LOGGER.debug("Fetched timetable: %s", timetable.date if timetable else None)
                     else:
