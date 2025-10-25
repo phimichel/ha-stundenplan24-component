@@ -7,6 +7,9 @@ from .shared import parse_free_days, parse_plan_date, Value, Exam
 
 import pytz
 
+# Cache timezone at module import to avoid blocking I/O in event loop
+_BERLIN_TZ = pytz.timezone("Europe/Berlin")
+
 __all__ = ["SubstitutionPlan", "Action"]
 
 
@@ -48,8 +51,7 @@ class SubstitutionPlan:
         plan.date = parse_plan_date(head.find("titel").text)
         plan.school_name = head.find("schulname").text
         plan.timestamp = (
-            pytz.timezone("Europe/Berlin")
-            .localize(datetime.datetime.strptime(head.find("datum").text, "%d.%m.%Y, %H:%M"))
+            _BERLIN_TZ.localize(datetime.datetime.strptime(head.find("datum").text, "%d.%m.%Y, %H:%M"))
         )
 
         head_info = head.find("kopfinfo")
