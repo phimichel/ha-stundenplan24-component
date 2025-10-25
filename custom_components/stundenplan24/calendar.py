@@ -63,7 +63,7 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
     @property
     def event(self) -> CalendarEvent | None:
         """Return the next upcoming event."""
-        now = datetime.now()
+        now = dt_util.now()
         events = self._get_events(now, now + timedelta(days=7))
 
         if not events:
