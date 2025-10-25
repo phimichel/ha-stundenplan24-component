@@ -1,9 +1,9 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # Development Container für Python Development
   devcontainer:
-    image: mcr.microsoft.com/devcontainers/python:3.11-bullseye
+    image: mcr.microsoft.com/devcontainers/python:3.12-bullseye
     volumes:
       - ..:/workspace:cached
     command: /bin/sh -c "while sleep 1000; do :; done"
@@ -14,7 +14,7 @@ services:
 
   # Home Assistant Container für Testing
   homeassistant:
-    image: ghcr.io/home-assistant/home-assistant:stable
+    image: homeassistant/home-assistant:stable
     container_name: ha-stundenplan24-dev
     restart: unless-stopped
     privileged: true
@@ -24,7 +24,7 @@ services:
       - "8123:8123"
     volumes:
       - ../config:/config
-      - ../custom_components:/config/custom_components:ro
+      - ../custom_components:/config/custom_components
       - /etc/localtime:/etc/localtime:ro
     environment:
       - TZ=Europe/Berlin

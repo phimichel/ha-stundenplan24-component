@@ -149,12 +149,18 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
                     summary = str(lesson.subject) if lesson.subject else "Unbekannt"
 
                     description_parts = []
-                    if lesson.teacher:
-                        description_parts.append(f"Lehrer: {lesson.teacher}")
-                    if lesson.room:
-                        description_parts.append(f"Raum: {lesson.room}")
-                    if lesson.information:
-                        description_parts.append(f"Info: {lesson.information}")
+                    if lesson.teacher and str(lesson.teacher):
+                        teacher_str = str(lesson.teacher)
+                        if teacher_str and teacher_str != "None":
+                            description_parts.append(f"Lehrer: {teacher_str}")
+                    if lesson.room and str(lesson.room):
+                        room_str = str(lesson.room)
+                        if room_str and room_str != "None":
+                            description_parts.append(f"Raum: {room_str}")
+                    if lesson.information and str(lesson.information):
+                        info_str = str(lesson.information)
+                        if info_str and info_str != "None":
+                            description_parts.append(f"Info: {info_str}")
 
                     description = "\n".join(description_parts) if description_parts else None
 
