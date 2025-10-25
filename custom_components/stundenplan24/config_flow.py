@@ -83,20 +83,20 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    @staticmethod
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> OptionsFlow:
-        """Get the options flow for this handler."""
-        return OptionsFlow(config_entry)
+    def __init__(self) -> None:
+        """Initialize config flow."""
+        self._credentials: dict[str, Any] = {}
+        self._available_forms: list[str] = []
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Handle the initial step."""
+        """Handle the initial step - credentials."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
             try:
-                info = await validate_input(self.hass, user_input)
+                await validate_input(self.hass, user_input)
             except CannotConnect:
                 errors["base"] = "cannot_connect"
             except InvalidAuth:
@@ -105,81 +105,69 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _LOGGER.exception("Unexpected exception")
                 errors["base"] = "unknown"
             else:
-                return self.async_create_entry(title=info["title"], data=user_input)
+                # Store credentials for next step
+                self._credentials = user_input
+
+                # Check if form_plan_client is available
+                try:
+                    forms = await self._get_available_forms()
+                    if forms:
+                        # Proceed to form selection
+                        self._available_forms = forms
+                        return await self.async_step_select_form()
+                except Exception as err:
+                    _LOGGER.debug("No form client available: %s", err)
+
+                # No form selection needed, create entry directly
+                return self.async_create_entry(
+                    title=user_input[CONF_SCHOOL_URL],
+                    data=user_input
+                )
 
         return self.async_show_form(
             step_id="user", data_schema=STEP_USER_DATA_SCHEMA, errors=errors
         )
 
-
-class CannotConnect(HomeAssistantError):
-    """Error to indicate we cannot connect."""
-
-
-class InvalidAuth(HomeAssistantError):
-    """Error to indicate there is invalid auth."""
-
-
-class OptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow for Stundenplan24."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        """Initialize options flow."""
-        self.config_entry = config_entry
-
-    async def async_step_init(
+    async def async_step_select_form(
         self, user_input: dict[str, Any] | None = None
     ) -> FlowResult:
-        """Manage the options."""
+        """Handle form (class) selection step."""
         errors: dict[str, str] = {}
 
         if user_input is not None:
-            return self.async_create_entry(title="", data=user_input)
+            # Combine credentials with form selection
+            data = {**self._credentials, **user_input}
+            selected_form = user_input[CONF_FORM]
 
-        # Load available forms from API
-        try:
-            forms = await self._get_available_forms()
-        except CannotConnect:
-            errors["base"] = "cannot_connect"
-            forms = []
-        except NoFormClient:
-            errors["base"] = "no_form_client"
-            forms = []
-        except Exception:  # pylint: disable=broad-except
-            _LOGGER.exception("Unexpected exception")
-            errors["base"] = "unknown"
-            forms = []
+            return self.async_create_entry(
+                title=f"{self._credentials[CONF_SCHOOL_URL]} - {selected_form}",
+                data=data
+            )
 
-        # Create schema with form selection
-        options_schema = vol.Schema(
-            {
-                vol.Optional(
-                    CONF_FORM,
-                    default=self.config_entry.options.get(CONF_FORM, ""),
-                ): vol.In(forms) if forms else str,
-            }
-        )
+        # Show form selection
+        schema = vol.Schema({
+            vol.Required(CONF_FORM): vol.In(self._available_forms)
+        })
 
         return self.async_show_form(
-            step_id="init", data_schema=options_schema, errors=errors
+            step_id="select_form", data_schema=schema, errors=errors
         )
 
     async def _get_available_forms(self) -> list[str]:
         """Get available forms from the API."""
-        # Create hosting object using config entry data
         hosting = Hosting.deserialize({
             "creds": {
-                "username": self.config_entry.data[CONF_USERNAME],
-                "password": self.config_entry.data[CONF_PASSWORD],
+                "username": self._credentials[CONF_USERNAME],
+                "password": self._credentials[CONF_PASSWORD],
             },
-            "endpoints": self.config_entry.data[CONF_SCHOOL_URL],
+            "endpoints": self._credentials[CONF_SCHOOL_URL],
         })
 
         client = IndiwareStundenplanerClient(hosting=hosting)
 
         if client.form_plan_client is None:
             await client.close()
-            raise NoFormClient("No form plan client available")
+            return []
 
         try:
             # Fetch a plan to get available forms
@@ -197,9 +185,14 @@ class OptionsFlow(config_entries.OptionsFlow):
 
             return forms
         except Exception as err:
+            _LOGGER.exception("Could not fetch forms")
             await client.close()
-            raise CannotConnect from err
+            return []
 
 
-class NoFormClient(HomeAssistantError):
-    """Error to indicate no form client is available."""
+class CannotConnect(HomeAssistantError):
+    """Error to indicate we cannot connect."""
+
+
+class InvalidAuth(HomeAssistantError):
+    """Error to indicate there is invalid auth."""

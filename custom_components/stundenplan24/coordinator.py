@@ -128,7 +128,7 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                         timetable = IndiwareMobilPlan.from_xml(root)
 
                         # Filter to selected form if configured
-                        selected_form = self.entry.options.get(CONF_FORM)
+                        selected_form = self.entry.data.get(CONF_FORM)
                         if selected_form:
                             timetable.forms = [
                                 form for form in timetable.forms

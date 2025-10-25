@@ -358,11 +358,11 @@ async def test_coordinator_parses_mobil_plan_xml(hass, mock_config_entry):
 
 async def test_coordinator_filters_selected_form(hass, mock_config_entry):
     """Test that coordinator filters timetable to selected form only."""
-    # Set selected form in options
+    # Set selected form in data (moved from options to config flow)
     mock_config_entry.add_to_hass(hass)
     hass.config_entries.async_update_entry(
         mock_config_entry,
-        options={CONF_FORM: "5a"}
+        data={**mock_config_entry.data, CONF_FORM: "5a"}
     )
 
     # Create sample XML (same as above)
