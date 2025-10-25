@@ -1,0 +1,22 @@
+--- patches/substitution_plan_old.py	2025-10-25 22:28:43
++++ patches/substitution_plan_new.py	2025-10-25 22:28:43
+@@ -7,6 +7,9 @@
+ 
+ import pytz
+ 
++# Cache timezone at module import to avoid blocking I/O in event loop
++_BERLIN_TZ = pytz.timezone("Europe/Berlin")
++
+ __all__ = ["SubstitutionPlan", "Action"]
+ 
+ 
+@@ -48,8 +51,7 @@
+         plan.date = parse_plan_date(head.find("titel").text)
+         plan.school_name = head.find("schulname").text
+         plan.timestamp = (
+-            pytz.timezone("Europe/Berlin")
+-            .localize(datetime.datetime.strptime(head.find("datum").text, "%d.%m.%Y, %H:%M"))
++            _BERLIN_TZ.localize(datetime.datetime.strptime(head.find("datum").text, "%d.%m.%Y, %H:%M"))
+         )
+ 
+         head_info = head.find("kopfinfo")

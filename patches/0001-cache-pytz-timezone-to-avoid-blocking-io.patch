@@ -1,0 +1,71 @@
+From 04d221cfba8943404ca653d2128baa75e60925c2 Mon Sep 17 00:00:00 2001
+From: "p.michel" <philipp.michel@zollsoft.de>
+Date: Sat, 25 Oct 2025 22:27:13 +0200
+Subject: [PATCH] fix: Cache pytz timezone to avoid blocking I/O in event loop
+
+Fix Home Assistant warning about blocking call to open() inside
+the event loop when pytz.timezone() is called during XML parsing.
+
+Changes:
+- Cache Europe/Berlin timezone at module import in both indiware_mobil.py
+  and substitution_plan.py
+- Replace all pytz.timezone("Europe/Berlin") calls with cached _BERLIN_TZ
+- Blocking I/O now only happens once at module load, not in event loop
+
+All 22 tests passing.
+---
+ .../stundenplan24/stundenplan24_py/indiware_mobil.py        | 6 ++++--
+ .../stundenplan24/stundenplan24_py/substitution_plan.py     | 6 ++++--
+ 2 files changed, 8 insertions(+), 4 deletions(-)
+
+diff --git a/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py b/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py
+index f482e33..57c08ec 100644
+--- a/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py
++++ b/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py
+@@ -9,6 +9,9 @@ import pytz
+ 
+ from .shared import parse_free_days, parse_plan_date, Value, Exam
+ 
++# Cache timezone at module import to avoid blocking I/O in event loop
++_BERLIN_TZ = pytz.timezone("Europe/Berlin")
++
+ __all__ = [
+     "IndiwareMobilPlan",
+     "Form",
+@@ -40,8 +43,7 @@ class IndiwareMobilPlan:
+         day.plan_type = head.find("planart").text
+ 
+         day.timestamp = (
+-            pytz.timezone("Europe/Berlin")
+-            .localize(datetime.datetime.strptime(head.find("zeitstempel").text, "%d.%m.%Y, %H:%M"))
++            _BERLIN_TZ.localize(datetime.datetime.strptime(head.find("zeitstempel").text, "%d.%m.%Y, %H:%M"))
+         ) if head.find("zeitstempel") is not None else None
+         day.date = parse_plan_date(head.find("DatumPlan").text)
+         day.filename = head.find("datei").text
+diff --git a/custom_components/stundenplan24/stundenplan24_py/substitution_plan.py b/custom_components/stundenplan24/stundenplan24_py/substitution_plan.py
+index 367c56d..51d8ca8 100644
+--- a/custom_components/stundenplan24/stundenplan24_py/substitution_plan.py
++++ b/custom_components/stundenplan24/stundenplan24_py/substitution_plan.py
+@@ -7,6 +7,9 @@ from .shared import parse_free_days, parse_plan_date, Value, Exam
+ 
+ import pytz
+ 
++# Cache timezone at module import to avoid blocking I/O in event loop
++_BERLIN_TZ = pytz.timezone("Europe/Berlin")
++
+ __all__ = ["SubstitutionPlan", "Action"]
+ 
+ 
+@@ -48,8 +51,7 @@ class SubstitutionPlan:
+         plan.date = parse_plan_date(head.find("titel").text)
+         plan.school_name = head.find("schulname").text
+         plan.timestamp = (
+-            pytz.timezone("Europe/Berlin")
+-            .localize(datetime.datetime.strptime(head.find("datum").text, "%d.%m.%Y, %H:%M"))
++            _BERLIN_TZ.localize(datetime.datetime.strptime(head.find("datum").text, "%d.%m.%Y, %H:%M"))
+         )
+ 
+         head_info = head.find("kopfinfo")
+-- 
+2.51.0
+
