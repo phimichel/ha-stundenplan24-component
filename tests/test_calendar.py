@@ -1,7 +1,7 @@
 """Test the Stundenplan24 calendar platform."""
 import pytest
 from unittest.mock import patch, MagicMock, AsyncMock
-from datetime import datetime, time, timedelta
+from datetime import datetime, date, time, timedelta
 
 from homeassistant.components.calendar import CalendarEvent
 
@@ -61,8 +61,10 @@ async def test_calendar_events_from_timetable(hass, mock_config_entry, mock_time
         # Get calendar entity
         calendar = hass.data[DOMAIN][mock_config_entry.entry_id]["calendar"]
 
-        # Get events for the week
-        start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Get events for the week containing the plan date (Jan 25, 2025)
+        # The mock fixture has a plan for Saturday, Jan 25, 2025
+        plan_date = date(2025, 1, 25)
+        start = datetime.combine(plan_date, datetime.min.time())
         end = start + timedelta(days=7)
 
         events = await calendar.async_get_events(hass, start, end)
@@ -108,8 +110,9 @@ async def test_calendar_event_attributes(hass, mock_config_entry, mock_timetable
         # Get calendar entity
         calendar = hass.data[DOMAIN][mock_config_entry.entry_id]["calendar"]
 
-        # Get events
-        start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        # Get events for the week containing the plan date (Jan 25, 2025)
+        plan_date = date(2025, 1, 25)
+        start = datetime.combine(plan_date, datetime.min.time())
         end = start + timedelta(days=7)
         events = await calendar.async_get_events(hass, start, end)
 
@@ -181,13 +184,13 @@ async def test_calendar_filters_by_date_range(hass, mock_config_entry, mock_time
         # Get calendar entity
         calendar = hass.data[DOMAIN][mock_config_entry.entry_id]["calendar"]
 
-        # Get events for tomorrow only
-        tomorrow = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0) + timedelta(days=1)
-        day_after = tomorrow + timedelta(days=1)
+        # Test date filtering: request day AFTER the plan date (Jan 26)
+        # Should return no events since plan is for Jan 25
+        plan_date = date(2025, 1, 25)
+        day_after_plan = datetime.combine(plan_date + timedelta(days=1), datetime.min.time())
+        two_days_after = day_after_plan + timedelta(days=1)
 
-        events = await calendar.async_get_events(hass, tomorrow, day_after)
+        events = await calendar.async_get_events(hass, day_after_plan, two_days_after)
 
-        # All events should be within the requested range
-        for event in events:
-            assert event.start >= tomorrow
-            assert event.start < day_after
+        # Should have no events since we're requesting a date range AFTER the plan date
+        assert len(events) == 0
