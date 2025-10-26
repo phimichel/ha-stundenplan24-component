@@ -84,29 +84,221 @@ Die Integration erstellt folgende Entities:
 
 | Entity ID | Name | Beschreibung |
 |-----------|------|--------------|
-| `sensor.stundenplan24_aktuelle_stunde` | Aktuelle Stunde | Zeigt die aktuell laufende Schulstunde |
-| `sensor.stundenplan24_naechste_stunde` | Nächste Stunde | Zeigt die nächste Schulstunde |
-| `sensor.stundenplan24_vertretungen_heute` | Vertretungen Heute | Vertretungsplan für heute |
-| `sensor.stundenplan24_vertretungen_morgen` | Vertretungen Morgen | Vertretungsplan für morgen |
-| `sensor.stundenplan24_tagesplan` | Tagesplan | Kompletter Stundenplan für heute |
+| `sensor.stundenplan24_vertretungen_heute` | Vertretungen Heute | Anzahl Vertretungen für heute |
+| `sensor.stundenplan24_vertretungen_morgen` | Vertretungen Morgen | Anzahl Vertretungen für morgen |
+| `sensor.stundenplan24_naechste_stunde` | Nächste Stunde | Die nächste anstehende Schulstunde |
+| `sensor.stundenplan24_zusatzinformationen` | Zusatzinformationen | Wichtige Schulinformationen (ZusatzInfo) |
 
-### Attribute
+### Kalender
 
-Jeder Sensor bietet zusätzliche Informationen als Attribute:
+| Entity ID | Name | Beschreibung |
+|-----------|------|--------------|
+| `calendar.stundenplan24_wochenplan` | Wochenplan | Stundenplan als Kalender mit allen Stunden und ZusatzInfo |
 
-**Aktuelle/Nächste Stunde:**
-- Fach
-- Lehrer
-- Raum
-- Zeitraum (von - bis)
-- Stundentyp (normal, Vertretung, Ausfall)
+### Sensor-Attribute
 
-**Vertretungen:**
-- Liste aller Vertretungen
-- Betroffene Stunden
-- Original-Lehrer / Vertretungs-Lehrer
-- Änderungen (Raum, Fach, etc.)
-- Bemerkungen
+**sensor.stundenplan24_vertretungen_heute/morgen:**
+- `substitutions`: Liste aller Vertretungen
+- `date`: Datum des Plans
+- `last_update`: Letzte Aktualisierung
+- `absent_teachers`: Abwesende Lehrer
+- `absent_forms`: Abwesende Klassen
+- `additional_info`: Zusatzinformationen
+
+**sensor.stundenplan24_naechste_stunde:**
+- `period`: Stundennummer
+- `start_time`: Startzeit
+- `end_time`: Endzeit
+- `teacher`: Lehrer
+- `room`: Raum
+- `course`: Kurs (falls vorhanden)
+- `info`: Zusätzliche Informationen
+
+**sensor.stundenplan24_zusatzinformationen:**
+- `today`: Text mit allen Informationen für heute
+- `today_lines`: Array mit einzelnen Zeilen für heute
+- `today_date`: Datum für heute
+- `tomorrow`: Text mit allen Informationen für morgen
+- `tomorrow_lines`: Array mit einzelnen Zeilen für morgen
+- `tomorrow_date`: Datum für morgen
+
+## 🎨 Dashboard-Beispiele
+
+### ZusatzInfo als Markdown Card (Empfohlen)
+
+Die schönste Darstellung für Schulinformationen:
+
+```yaml
+type: markdown
+title: Schulinformationen
+content: |
+  {% if state_attr('sensor.stundenplan24_zusatzinformationen', 'today') %}
+  ## 📅 Heute ({{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today_date') }})
+  {{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today') }}
+  {% endif %}
+
+  {% if state_attr('sensor.stundenplan24_zusatzinformationen', 'tomorrow') %}
+  ## 📅 Morgen ({{ state_attr('sensor.stundenplan24_zusatzinformationen', 'tomorrow_date') }})
+  {{ state_attr('sensor.stundenplan24_zusatzinformationen', 'tomorrow') }}
+  {% endif %}
+
+  {% if states('sensor.stundenplan24_zusatzinformationen') == 'Keine Informationen' %}
+  ℹ️ Keine besonderen Informationen
+  {% endif %}
+```
+
+### Kompakte Entities Card
+
+```yaml
+type: entities
+title: Zusatzinformationen
+entities:
+  - entity: sensor.stundenplan24_zusatzinformationen
+    name: Status
+    icon: mdi:information-outline
+  - type: attribute
+    entity: sensor.stundenplan24_zusatzinformationen
+    attribute: today
+    name: Heute
+  - type: attribute
+    entity: sensor.stundenplan24_zusatzinformationen
+    attribute: tomorrow
+    name: Morgen
+```
+
+### Conditional Card (Nur bei wichtigen Infos)
+
+Zeigt die Card nur an, wenn tatsächlich Informationen vorhanden sind:
+
+```yaml
+type: conditional
+conditions:
+  - condition: state
+    entity: sensor.stundenplan24_zusatzinformationen
+    state_not: "Keine Informationen"
+card:
+  type: markdown
+  title: ⚠️ Wichtige Schulinformationen
+  content: |
+    {% if state_attr('sensor.stundenplan24_zusatzinformationen', 'today') %}
+    **Heute:**
+    {{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today') }}
+    {% endif %}
+
+    {% if state_attr('sensor.stundenplan24_zusatzinformationen', 'tomorrow') %}
+    **Morgen:**
+    {{ state_attr('sensor.stundenplan24_zusatzinformationen', 'tomorrow') }}
+    {% endif %}
+```
+
+### Vertikale Stack Card (Alles zusammen)
+
+```yaml
+type: vertical-stack
+cards:
+  - type: markdown
+    title: 🏫 Stundenplan24 Informationen
+    content: |
+      **Status:** {{ states('sensor.stundenplan24_zusatzinformationen') }}
+
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: sensor.stundenplan24_zusatzinformationen
+        attribute: today
+        state_not: null
+    card:
+      type: markdown
+      title: 📅 Heute
+      content: "{{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today') }}"
+
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: sensor.stundenplan24_zusatzinformationen
+        attribute: tomorrow
+        state_not: null
+    card:
+      type: markdown
+      title: 📅 Morgen
+      content: "{{ state_attr('sensor.stundenplan24_zusatzinformationen', 'tomorrow') }}"
+```
+
+### Custom Button Card (fortgeschritten)
+
+Benötigt die [button-card](https://github.com/custom-cards/button-card) Custom Card:
+
+```yaml
+type: custom:button-card
+entity: sensor.stundenplan24_zusatzinformationen
+name: Schulinformationen
+icon: mdi:school
+show_state: true
+show_label: true
+label: |
+  [[[
+    const today = states['sensor.stundenplan24_zusatzinformationen'].attributes.today;
+    const tomorrow = states['sensor.stundenplan24_zusatzinformationen'].attributes.tomorrow;
+    let text = '';
+    if (today) text += '📅 Heute: ' + today.split('\n')[0];
+    if (tomorrow) text += '\n📅 Morgen: ' + tomorrow.split('\n')[0];
+    return text || 'Keine Informationen';
+  ]]]
+styles:
+  card:
+    - height: auto
+  label:
+    - text-align: left
+    - white-space: pre-wrap
+tap_action:
+  action: more-info
+```
+
+## 🔔 Automatisierungen
+
+### Benachrichtigung bei neuen Schulinfos
+
+```yaml
+automation:
+  - alias: "Schulinfo Benachrichtigung"
+    description: "Benachrichtigt bei neuen Zusatzinformationen"
+    trigger:
+      - platform: state
+        entity_id: sensor.stundenplan24_zusatzinformationen
+        attribute: today
+    condition:
+      - condition: template
+        value_template: "{{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today') != None }}"
+    action:
+      - service: notify.mobile_app_dein_handy
+        data:
+          title: "📚 Schulinfo heute"
+          message: |
+            {{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today') }}
+```
+
+### Morgendliche Zusammenfassung
+
+```yaml
+automation:
+  - alias: "Morgendliche Schulinfo"
+    description: "Sendet jeden Morgen die Infos für heute"
+    trigger:
+      - platform: time
+        at: "07:00:00"
+    condition:
+      - condition: state
+        entity_id: sensor.stundenplan24_zusatzinformationen
+        attribute: today
+        state_not: null
+    action:
+      - service: notify.family
+        data:
+          title: "Guten Morgen! 🌅"
+          message: |
+            Schulinfos für heute:
+            {{ state_attr('sensor.stundenplan24_zusatzinformationen', 'today') }}
+```
 
 ## 🔧 Entwicklung
 
