@@ -32,6 +32,7 @@ Entwicklung einer Custom Component für Home Assistant zur Anzeige von Stundenpl
 **Upstream Patches:**
 Patches für stundenplan24-wrapper befinden sich im `patches/` Verzeichnis:
 - `0001-cache-pytz-timezone-to-avoid-blocking-io.patch` - Behebt Home Assistant Warnung über blockierendes I/O in Event Loop
+- `0002-fix-xml-element-truth-value-deprecation.patch` - Behebt XML ElementTree DeprecationWarnings (5 Stellen in `Form.from_xml()`)
 - Siehe `patches/README.md` für Details und Anwendungshinweise
 
 **TODO:** Sobald stundenplan24-wrapper auf PyPI veröffentlicht ist:

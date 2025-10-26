@@ -1,5 +1,5 @@
 """Test calendar with real sample data."""
-from datetime import datetime, timedelta
+from datetime import datetime, date, timedelta
 from unittest.mock import AsyncMock, MagicMock
 import xml.etree.ElementTree as ET
 
@@ -141,3 +141,88 @@ async def test_calendar_with_sample_xml(hass: HomeAssistant):
 
     print("\n✓ All events correctly placed on the plan date (Monday)")
     print("✓ Events are sorted by time")
+
+
+async def test_calendar_with_zusatzinfo_all_day_event(hass: HomeAssistant):
+    """Test calendar creates all-day events for ZusatzInfo."""
+    # Load sample XML
+    with open(
+        "/Users/user/Development/Private/homeassistant_components/stundenplan24/samples/PlanKl20251027.xml",
+        "r",
+        encoding="utf-8",
+    ) as f:
+        xml_content = f.read()
+
+    # Parse XML
+    xml_root = ET.fromstring(xml_content)
+    plan = IndiwareMobilPlan.from_xml(xml_root)
+
+    # Verify plan has ZusatzInfo
+    assert plan.additional_info is not None
+    assert len(plan.additional_info) > 0
+    print(f"\nPlan has {len(plan.additional_info)} ZusatzInfo lines")
+
+    # Filter to non-empty lines
+    info_lines = [line for line in plan.additional_info if line.strip()]
+    print(f"Non-empty ZusatzInfo lines: {len(info_lines)}")
+    for line in info_lines[:3]:
+        print(f"  - {line}")
+
+    # Now test the calendar with ZusatzInfo
+    config_entry = MagicMock()
+    config_entry.entry_id = "test"
+    config_entry.options = {"form": "LG 1"}
+    config_entry.data = {
+        "school_url": "https://test.stundenplan24.de",
+        "username": "test",
+        "password": "test",
+    }
+
+    coordinator = Stundenplan24Coordinator(hass, config_entry)
+
+    # Mock the data with our parsed plan in the multi-day structure
+    coordinator.data = {
+        "timetables": {plan.date: plan},
+        "timetable": plan,
+    }
+
+    calendar = Stundenplan24Calendar(coordinator)
+
+    # Request events for the week containing the plan date
+    plan_date = datetime(2025, 10, 27, 0, 0, 0)
+    start_date = dt_util.as_local(plan_date)
+    end_date = dt_util.as_local(plan_date + timedelta(days=7))
+
+    events = calendar._get_events(start_date, end_date)
+
+    print(f"\n\nCalendar generated {len(events)} total events")
+
+    # Find all-day events (events where start and end are dates, not datetimes)
+    all_day_events = [e for e in events if isinstance(e.start, date) and not isinstance(e.start, datetime)]
+
+    print(f"All-day events: {len(all_day_events)}")
+
+    # Should have at least one all-day event for ZusatzInfo
+    assert len(all_day_events) >= 1, f"Expected at least 1 all-day event, got {len(all_day_events)}"
+
+    # Check the ZusatzInfo all-day event
+    info_event = next((e for e in all_day_events if "Information" in e.summary), None)
+    assert info_event is not None, "No 'Informationen' all-day event found"
+
+    print(f"\nAll-day event found:")
+    print(f"  Summary: {info_event.summary}")
+    print(f"  Start: {info_event.start}")
+    print(f"  End: {info_event.end}")
+    print(f"  Description (first 100 chars): {info_event.description[:100] if info_event.description else 'None'}...")
+
+    # Verify it's on the correct date
+    assert info_event.start == plan.date
+    assert info_event.end == plan.date + timedelta(days=1)
+
+    # Verify description contains ZusatzInfo
+    assert info_event.description is not None
+    assert "Pausenorte" in info_event.description or "Bibliothek" in info_event.description
+
+    print("\n✓ All-day event correctly created for ZusatzInfo")
+    print("✓ Event spans the entire day")
+    print("✓ Description contains information from ZusatzInfo")

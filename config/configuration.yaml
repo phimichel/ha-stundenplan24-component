@@ -1,5 +1,6 @@
 # Home Assistant Development Configuration
 # für stundenplan24 Custom Component Testing
+#onboarding:
 
 homeassistant:
   name: Stundenplan24 Dev
@@ -52,7 +53,6 @@ system_health:
 
 # My Home Assistant
 my:
-
 # Beispiel: Aktiviere die stundenplan24 Integration
 # (wird später über UI konfiguriert)
 # stundenplan24:
