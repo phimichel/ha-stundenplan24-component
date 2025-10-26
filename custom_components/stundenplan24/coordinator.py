@@ -144,12 +144,15 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
 
                                 # Validate XML content before parsing
                                 content = plan_response.content
-                                # Handle both bytes and string content
+                                # Basic validation: check if content looks like XML
+                                # XML can start with <?xml declaration or directly with a tag <
                                 if isinstance(content, bytes):
-                                    if not content.strip().startswith(b'<?xml') and not content.strip().startswith(b'<'):
+                                    stripped = content.strip()
+                                    if not stripped or not stripped.startswith(b'<'):
                                         raise ValueError("Response is not XML")
                                 else:
-                                    if not content.strip().startswith('<?xml') and not content.strip().startswith('<'):
+                                    stripped = content.strip()
+                                    if not stripped or not stripped.startswith('<'):
                                         raise ValueError("Response is not XML")
 
                                 # Parse XML to IndiwareMobilPlan
