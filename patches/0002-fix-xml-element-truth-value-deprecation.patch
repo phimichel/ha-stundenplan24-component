@@ -1,0 +1,79 @@
+From a2069c4d72e0f284c8f30a221ee1626dbbc760c3 Mon Sep 17 00:00:00 2001
+From: "p.michel" <philipp.michel@zollsoft.de>
+Date: Sun, 26 Oct 2025 13:07:05 +0100
+Subject: [PATCH] fix: Replace deprecated XML element truth value testing
+
+Replace the deprecated pattern `xml.find("...") or []` with
+the recommended `elem if elem is not None else []` pattern
+to avoid DeprecationWarning and future incompatibility.
+
+This fixes 5 instances in Form.from_xml():
+- KlStunden (periods parsing)
+- Kurse (courses parsing)
+- Unterricht (classes parsing)
+- Klausuren (exams parsing)
+- Aufsichten (break supervisions parsing)
+
+The old pattern `for item in xml.find("tag") or []` triggers:
+"DeprecationWarning: Testing an element's truth value will
+raise an exception in future versions. Use specific 'len(elem)'
+or 'elem is not None' test instead."
+
+The new pattern explicitly checks `is not None` which is the
+recommended approach for XML ElementTree elements.
+---
+ .../stundenplan24_py/indiware_mobil.py            | 15 ++++++++++-----
+ 1 file changed, 10 insertions(+), 5 deletions(-)
+
+diff --git a/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py b/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py
+index 57c08ec..dbacf28 100644
+--- a/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py
++++ b/custom_components/stundenplan24/stundenplan24_py/indiware_mobil.py
+@@ -97,7 +97,8 @@ class Form:
+ 
+         # parse periods
+         form.periods = {}
+-        for period in xml.find("KlStunden") or []:
++        kl_stunden = xml.find("KlStunden")
++        for period in (kl_stunden if kl_stunden is not None else []):
+             start, end = period.attrib["ZeitVon"].strip(), period.attrib["ZeitBis"].strip()
+             try:
+                 start = datetime.datetime.strptime(start, "%H:%M").time()
+@@ -111,13 +112,15 @@ class Form:
+ 
+         # parse courses
+         form.courses = {}
+-        for _course in xml.find("Kurse") or []:
++        kurse = xml.find("Kurse")
++        for _course in (kurse if kurse is not None else []):
+             course = _course.find("KKz")
+             form.courses |= {course.text: course.attrib["KLe"]}
+ 
+         # parse classes
+         form.classes = {}
+-        for _class in xml.find("Unterricht") or []:
++        unterricht = xml.find("Unterricht")
++        for _class in (unterricht if unterricht is not None else []):
+             class_ = _class.find("UeNr")
+             class_obj = Class(
+                 teacher=class_.attrib["UeLe"],
+@@ -133,12 +136,14 @@ class Form:
+ 
+         # parse exams
+         form.exams = []
+-        for _exam in xml.find("Klausuren") or []:
++        klausuren = xml.find("Klausuren")
++        for _exam in (klausuren if klausuren is not None else []):
+             form.exams.append(Exam.from_xml_indiware_mobile(_exam))
+ 
+         # parse break supervisions
+         form.break_supervisions = []
+-        for _break_supervision in xml.find("Aufsichten") or []:
++        aufsichten = xml.find("Aufsichten")
++        for _break_supervision in (aufsichten if aufsichten is not None else []):
+             form.break_supervisions.append(BreakSupervision.from_xml(_break_supervision))
+ 
+         return form
+-- 
+2.51.0
+

@@ -29,12 +29,44 @@ pytz.timezone("Europe/Berlin")
 - `indiware_mobil.py`
 - `substitution_plan.py`
 
+### 2. Fix XML element truth value deprecation warnings
+
+**Datei:**
+- `0002-fix-xml-element-truth-value-deprecation.patch` - Kompletter Git Patch
+
+**Problem:**
+Python's XML ElementTree zeigt Deprecation-Warnungen bei direktem Truth-Value-Testing:
+```
+DeprecationWarning: Testing an element's truth value will raise an exception in future versions.
+Use specific 'len(elem)' or 'elem is not None' test instead.
+  for period in xml.find("KlStunden") or []:
+```
+
+**Lösung:**
+- Ersetze `xml.find("tag") or []` mit `elem = xml.find("tag"); for item in (elem if elem is not None else []):`
+- Explizite `is not None` Prüfung statt impliziten Truth-Value-Test
+- Betrifft 5 Stellen in `Form.from_xml()`: KlStunden, Kurse, Unterricht, Klausuren, Aufsichten
+
+**Betroffene Dateien:**
+- `indiware_mobil.py` (Lines 100, 114, 120, 136, 141)
+
+**Technischer Hintergrund:**
+XML Elements in Python's ElementTree haben ein spezielles Truth-Value-Verhalten (empty element = False), welches deprecated wird. Die neue empfohlene Methode ist explizite Checks auf `is not None` oder `len(elem) > 0`.
+
 ## Anwendung der Patches
 
-### Git Patch (Komplettversion)
+### Git Patches (Komplettversion)
+
+**Patch 1 (pytz caching):**
 ```bash
 cd stundenplan24-wrapper/
 git apply /path/to/0001-cache-pytz-timezone-to-avoid-blocking-io.patch
+```
+
+**Patch 2 (XML deprecation fix):**
+```bash
+cd stundenplan24-wrapper/
+git apply /path/to/0002-fix-xml-element-truth-value-deprecation.patch
 ```
 
 ### Standalone Patches
