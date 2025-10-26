@@ -175,11 +175,12 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
                     description_parts = []
 
                     # Safely convert lesson attributes to strings
+                    # Use bullet points for better visual separation
                     if lesson.teacher:
                         try:
                             teacher_str = str(lesson.teacher)
                             if teacher_str and teacher_str != "None":
-                                description_parts.append(f"Lehrer: {teacher_str}")
+                                description_parts.append(f"👤 Lehrer: {teacher_str}")
                         except (TypeError, ValueError):
                             pass
 
@@ -187,7 +188,7 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
                         try:
                             room_str = str(lesson.room)
                             if room_str and room_str != "None":
-                                description_parts.append(f"Raum: {room_str}")
+                                description_parts.append(f"📍 Raum: {room_str}")
                         except (TypeError, ValueError):
                             pass
 
@@ -195,12 +196,12 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
                         try:
                             info_str = str(lesson.information)
                             if info_str and info_str != "None":
-                                description_parts.append(f"Info: {info_str}")
+                                description_parts.append(f"ℹ️  Info: {info_str}")
                         except (TypeError, ValueError):
                             pass
 
-                    # Use double newlines for better formatting in calendar display
-                    description = "\n\n".join(description_parts) if description_parts else None
+                    # Use single newlines - iCalendar format supports \n for line breaks
+                    description = "\n".join(description_parts) if description_parts else None
 
                     event = CalendarEvent(
                         start=lesson_datetime,
