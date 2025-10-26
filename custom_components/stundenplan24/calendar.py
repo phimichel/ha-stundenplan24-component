@@ -69,10 +69,30 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
         if not events:
             return None
 
-        # Find next event
-        future_events = [e for e in events if e.start > now]
+        # Find next event - handle both datetime and date objects
+        def is_future_event(event):
+            """Check if event is in the future."""
+            if isinstance(event.start, datetime):
+                return event.start > now
+            else:
+                # All-day events (date objects) - compare just the date
+                # Consider all-day event as starting at midnight
+                event_datetime = dt_util.start_of_local_day(
+                    datetime.combine(event.start, datetime.min.time())
+                )
+                return event_datetime > now
+
+        future_events = [e for e in events if is_future_event(e)]
         if future_events:
-            return min(future_events, key=lambda e: e.start)
+            # Use the same sort key as in _get_events for consistency
+            def sort_key(event):
+                if isinstance(event.start, datetime):
+                    return event.start
+                else:
+                    return dt_util.start_of_local_day(
+                        datetime.combine(event.start, datetime.min.time())
+                    )
+            return min(future_events, key=sort_key)
 
         return None
 
