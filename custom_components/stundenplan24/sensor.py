@@ -290,7 +290,10 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
         self._attr_icon = "mdi:information-outline"
 
     def _get_info_for_date(self, target_date: date) -> list[str] | None:
-        """Get ZusatzInfo for a specific date."""
+        """Get ZusatzInfo for a specific date.
+
+        Returns raw lines including empty ones (used for lines array).
+        """
         if not self.coordinator.data:
             return None
 
@@ -300,16 +303,46 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
         if timetables and target_date in timetables:
             plan = timetables[target_date]
             if plan.additional_info:
-                # Filter out empty lines and None values
-                return [line for line in plan.additional_info if line and line.strip()]
+                # Filter out None values but keep empty strings (section markers)
+                return [line if line else "" for line in plan.additional_info]
 
         # Fallback to single timetable for today
         timetable = self.coordinator.data.get("timetable")
         if timetable and timetable.date == target_date:
             if timetable.additional_info:
-                return [line for line in timetable.additional_info if line and line.strip()]
+                return [line if line else "" for line in timetable.additional_info]
 
         return None
+
+    def _format_info_text(self, lines: list[str] | None) -> str | None:
+        """Format ZusatzInfo lines into markdown text.
+
+        Empty lines become section separators (double newline in markdown).
+        """
+        if not lines:
+            return None
+
+        # Process lines to create markdown sections
+        sections = []
+        current_section = []
+
+        for line in lines:
+            if line.strip():  # Non-empty line
+                current_section.append(line)
+            else:  # Empty line = section separator
+                if current_section:
+                    sections.append("\n".join(current_section))
+                    current_section = []
+
+        # Add last section if exists
+        if current_section:
+            sections.append("\n".join(current_section))
+
+        if not sections:
+            return None
+
+        # Join sections with double newline (markdown paragraph separator)
+        return "\n\n".join(sections)
 
     @property
     def native_value(self) -> str | None:
@@ -344,8 +377,8 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
         # Today's info
         today_info = self._get_info_for_date(today)
         if today_info:
-            attrs["today"] = "\n".join(today_info)
-            attrs["today_lines"] = today_info
+            attrs["today"] = self._format_info_text(today_info)
+            attrs["today_lines"] = [line for line in today_info if line.strip()]
             attrs["today_date"] = str(today)
         else:
             attrs["today"] = None
@@ -354,8 +387,8 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
         # Tomorrow's info
         tomorrow_info = self._get_info_for_date(tomorrow)
         if tomorrow_info:
-            attrs["tomorrow"] = "\n".join(tomorrow_info)
-            attrs["tomorrow_lines"] = tomorrow_info
+            attrs["tomorrow"] = self._format_info_text(tomorrow_info)
+            attrs["tomorrow_lines"] = [line for line in tomorrow_info if line.strip()]
             attrs["tomorrow_date"] = str(tomorrow)
         else:
             attrs["tomorrow"] = None

@@ -85,9 +85,10 @@ async def test_calendar_with_sample_xml(hass: HomeAssistant):
 
     coordinator = Stundenplan24Coordinator(hass, config_entry)
 
-    # Mock the data with our parsed plan
+    # Mock the data with our parsed plan in the multi-day structure
     coordinator.data = {
-        "timetable": plan,
+        "timetables": {plan.date: plan},
+        "timetable": plan,  # Backward compatibility
     }
 
     calendar = Stundenplan24Calendar(coordinator)
@@ -105,7 +106,12 @@ async def test_calendar_with_sample_xml(hass: HomeAssistant):
     # Group events by day
     events_by_day = {}
     for event in events:
-        day_name = event.start.strftime("%A, %Y-%m-%d")
+        # Handle both datetime and date objects
+        if isinstance(event.start, datetime):
+            day_name = event.start.strftime("%A, %Y-%m-%d")
+        else:
+            day_name = event.start.strftime("%A, %Y-%m-%d")
+
         if day_name not in events_by_day:
             events_by_day[day_name] = []
         events_by_day[day_name].append(event)
@@ -115,7 +121,11 @@ async def test_calendar_with_sample_xml(hass: HomeAssistant):
         day_events = events_by_day[day_name]
         print(f"  {day_name}: {len(day_events)} event(s)")
         for event in day_events[:3]:  # First 3 events
-            print(f"    - {event.start.strftime('%H:%M')}-{event.end.strftime('%H:%M')}: {event.summary}")
+            # Handle both datetime (timed events) and date (all-day events)
+            if isinstance(event.start, datetime):
+                print(f"    - {event.start.strftime('%H:%M')}-{event.end.strftime('%H:%M')}: {event.summary}")
+            else:
+                print(f"    - 00:00-00:00: {event.summary}")
 
     # Verify events are distributed across weekdays, not just Monday
     # THIS IS THE BUG: All events are on Monday because the XML only contains
@@ -131,12 +141,21 @@ async def test_calendar_with_sample_xml(hass: HomeAssistant):
 
     # CORRECT behavior: All events should be on Monday (the plan date)
     # The IndiwareMobil plan is a DAILY plan, not a weekly plan
-    assert len(monday_events) == 14, f"Expected 14 events on Monday, got {len(monday_events)}"
+    # Expected: 14 lesson events + 1 ZusatzInfo all-day event = 15 total
+    assert len(monday_events) == 15, f"Expected 15 events on Monday (14 lessons + 1 ZusatzInfo), got {len(monday_events)}"
     assert len(tuesday_events) == 0, f"Expected 0 events on Tuesday, got {len(tuesday_events)}"
 
-    # Verify events are sorted by time
+    # Verify events are sorted by time (using same logic as calendar.py)
+    def get_sort_key(event):
+        if isinstance(event.start, datetime):
+            return event.start
+        else:
+            return dt_util.start_of_local_day(
+                datetime.combine(event.start, datetime.min.time())
+            )
+
     for i in range(len(monday_events) - 1):
-        assert monday_events[i].start <= monday_events[i+1].start, \
+        assert get_sort_key(monday_events[i]) <= get_sort_key(monday_events[i+1]), \
             "Events should be sorted by start time"
 
     print("\n✓ All events correctly placed on the plan date (Monday)")
@@ -162,8 +181,8 @@ async def test_calendar_with_zusatzinfo_all_day_event(hass: HomeAssistant):
     assert len(plan.additional_info) > 0
     print(f"\nPlan has {len(plan.additional_info)} ZusatzInfo lines")
 
-    # Filter to non-empty lines
-    info_lines = [line for line in plan.additional_info if line.strip()]
+    # Filter to non-empty lines (handle None values)
+    info_lines = [line for line in plan.additional_info if line and line.strip()]
     print(f"Non-empty ZusatzInfo lines: {len(info_lines)}")
     for line in info_lines[:3]:
         print(f"  - {line}")
