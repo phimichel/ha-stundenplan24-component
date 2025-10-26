@@ -136,6 +136,12 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                         # Get up to 7 most recent plan files
                         files_to_fetch = list(available_dates.keys())[:7]
 
+                        _LOGGER.debug(
+                            "Available plan files from API (%d total, fetching first 7): %s",
+                            len(available_dates),
+                            files_to_fetch
+                        )
+
                         for filename in files_to_fetch:
                             try:
                                 plan_response = await mobil_clients[0].fetch_plan(
@@ -171,11 +177,21 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                                     ]
 
                                 # Store plan by date for easy lookup
+                                # Warn if we're overwriting an existing plan (duplicate date)
+                                if plan.date in plans_by_date:
+                                    _LOGGER.warning(
+                                        "Plan for %s already exists (from %s), overwriting with %s",
+                                        plan.date,
+                                        "previous file",
+                                        filename
+                                    )
+
                                 plans_by_date[plan.date] = plan
 
                                 _LOGGER.debug(
-                                    "Fetched plan for %s with %d form(s)",
+                                    "Fetched plan for %s (from %s) with %d form(s)",
                                     plan.date,
+                                    filename,
                                     len(plan.forms)
                                 )
                             except ET.ParseError as err:
