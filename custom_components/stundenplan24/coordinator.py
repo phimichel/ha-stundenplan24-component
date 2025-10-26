@@ -144,16 +144,26 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
 
                                 # Validate XML content before parsing
                                 content = plan_response.content
+
+                                # Debug logging to understand content type
+                                _LOGGER.debug(
+                                    "Content type for %s: %s, length: %s, first 50 chars: %s",
+                                    filename,
+                                    type(content).__name__,
+                                    len(content) if content else 0,
+                                    repr(content[:50]) if content else None
+                                )
+
                                 # Basic validation: check if content looks like XML
                                 # XML can start with <?xml declaration or directly with a tag <
                                 if isinstance(content, bytes):
                                     stripped = content.strip()
                                     if not stripped or not stripped.startswith(b'<'):
-                                        raise ValueError("Response is not XML")
+                                        raise ValueError(f"Response is not XML (bytes): {repr(content[:100])}")
                                 else:
                                     stripped = content.strip()
                                     if not stripped or not stripped.startswith('<'):
-                                        raise ValueError("Response is not XML")
+                                        raise ValueError(f"Response is not XML (string): {repr(content[:100])}")
 
                                 # Parse XML to IndiwareMobilPlan
                                 root = ET.fromstring(content)
