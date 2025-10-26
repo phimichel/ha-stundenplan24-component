@@ -173,13 +173,21 @@ async def test_coordinator_fetch_mobil_plans(hass, mock_config_entry):
         assert len(coordinator.data["timetable"].forms) == 1
         assert coordinator.data["timetable"].forms[0].short_name == "5a"
 
+        # Verify timetables dictionary exists (new multi-day structure)
+        assert "timetables" in coordinator.data
+        assert len(coordinator.data["timetables"]) > 0
+
         # Verify fetch_dates was called
         mock_mobil.fetch_dates.assert_called_once()
 
-        # Verify fetch_plan was called with first key from dict
-        mock_mobil.fetch_plan.assert_called_once()
-        call_args = mock_mobil.fetch_plan.call_args
-        assert call_args[1]["date_or_filename"] in available_dates.keys()
+        # Verify fetch_plan was called for each available date (up to 7)
+        # With 2 available dates, expect 2 calls
+        assert mock_mobil.fetch_plan.call_count == 2
+
+        # Verify all calls used valid filenames from available_dates
+        for call in mock_mobil.fetch_plan.call_args_list:
+            filename = call.kwargs["date_or_filename"]
+            assert filename in available_dates.keys()
 
 
 async def test_coordinator_handle_api_errors_gracefully(hass, mock_config_entry):

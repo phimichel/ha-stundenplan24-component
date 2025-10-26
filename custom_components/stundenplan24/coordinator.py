@@ -107,42 +107,85 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                     _LOGGER.warning("Could not fetch substitution plan for tomorrow: %s", err)
                     data["substitution_tomorrow"] = None
 
-            # Fetch Indiware Mobil plan (timetable)
+            # Fetch Indiware Mobil plans (timetable)
+            # Each plan contains ALL forms/classes for a specific day
+            # We fetch multiple days to provide better calendar coverage
             if mobil_clients:
                 try:
                     # Get available dates first
                     available_dates = await mobil_clients[0].fetch_dates()
 
                     if available_dates:
-                        # Fetch the most recent plan
-                        latest_file = list(available_dates.keys())[0]
-                        plan_response = await mobil_clients[0].fetch_plan(
-                            date_or_filename=latest_file
-                        )
-
-                        # Parse XML to IndiwareMobilPlan
                         from .stundenplan24_py.indiware_mobil import IndiwareMobilPlan
                         import xml.etree.ElementTree as ET
 
-                        root = ET.fromstring(plan_response.content)
-                        timetable = IndiwareMobilPlan.from_xml(root)
-
-                        # Filter to selected form if configured
+                        # Fetch plans for up to 7 days (for weekly calendar view)
+                        # Each plan file contains all forms, so we only fetch once per day
+                        plans_by_date = {}
                         selected_form = self.entry.data.get(CONF_FORM)
-                        if selected_form:
-                            timetable.forms = [
-                                form for form in timetable.forms
-                                if form.short_name == selected_form
-                            ]
-                            _LOGGER.debug("Filtered timetable to form: %s", selected_form)
 
-                        data["timetable"] = timetable
-                        _LOGGER.debug("Fetched timetable: %s", timetable.date if timetable else None)
+                        # Get up to 7 most recent plan files
+                        files_to_fetch = list(available_dates.keys())[:7]
+
+                        for filename in files_to_fetch:
+                            try:
+                                plan_response = await mobil_clients[0].fetch_plan(
+                                    date_or_filename=filename
+                                )
+
+                                # Parse XML to IndiwareMobilPlan
+                                root = ET.fromstring(plan_response.content)
+                                plan = IndiwareMobilPlan.from_xml(root)
+
+                                # Filter to selected form if configured
+                                # This reduces memory usage since we only keep relevant data
+                                if selected_form:
+                                    plan.forms = [
+                                        form for form in plan.forms
+                                        if form.short_name == selected_form
+                                    ]
+
+                                # Store plan by date for easy lookup
+                                plans_by_date[plan.date] = plan
+
+                                _LOGGER.debug(
+                                    "Fetched plan for %s with %d form(s)",
+                                    plan.date,
+                                    len(plan.forms)
+                                )
+                            except Exception as err:
+                                _LOGGER.warning(
+                                    "Could not fetch plan %s: %s",
+                                    filename,
+                                    err
+                                )
+                                continue
+
+                        if plans_by_date:
+                            # Store all plans indexed by date
+                            data["timetables"] = plans_by_date
+
+                            # For backward compatibility, also store the most recent plan
+                            # as "timetable" (for existing sensors that expect it)
+                            most_recent_date = max(plans_by_date.keys())
+                            data["timetable"] = plans_by_date[most_recent_date]
+
+                            _LOGGER.debug(
+                                "Fetched %d daily timetables (most recent: %s)",
+                                len(plans_by_date),
+                                most_recent_date
+                            )
+                        else:
+                            _LOGGER.warning("No timetables could be fetched")
+                            data["timetables"] = {}
+                            data["timetable"] = None
                     else:
                         _LOGGER.warning("No timetable files available")
+                        data["timetables"] = {}
                         data["timetable"] = None
                 except Exception as err:
-                    _LOGGER.warning("Could not fetch timetable: %s", err)
+                    _LOGGER.warning("Could not fetch timetables: %s", err)
+                    data["timetables"] = {}
                     data["timetable"] = None
 
             return data

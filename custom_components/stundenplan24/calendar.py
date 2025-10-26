@@ -94,9 +94,16 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
         if not self.coordinator.data:
             return []
 
-        timetable = self.coordinator.data.get("timetable")
-        if not timetable or not timetable.forms:
-            return []
+        # Get all daily timetables (new multi-day structure)
+        timetables = self.coordinator.data.get("timetables", {})
+
+        # Fallback to single timetable for backward compatibility
+        if not timetables:
+            single_timetable = self.coordinator.data.get("timetable")
+            if single_timetable and single_timetable.forms:
+                timetables = {single_timetable.date: single_timetable}
+            else:
+                return []
 
         # Ensure start_date and end_date are timezone-aware
         if start_date.tzinfo is None:
@@ -106,82 +113,81 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
 
         events = []
 
-        # Get the first form (should be the selected one after filtering)
-        form = timetable.forms[0]
-
-        # IMPORTANT: The IndiwareMobil plan contains lessons for a SPECIFIC day,
-        # not a week! The timetable.date field tells us which day.
-        # We should place all lessons on that specific day.
-
-        plan_date = timetable.date  # This is the date from the plan (e.g., 2025-10-27)
-
-        # Convert plan_date to a timezone-aware datetime
-        plan_datetime = dt_util.start_of_local_day(
-            datetime.combine(plan_date, datetime.min.time())
-        )
-
-        # Check if the plan date is within the requested range
-        if plan_datetime < start_date or plan_datetime >= end_date:
-            return []
-
-        # Generate events for each lesson on the plan date
-        for lesson in form.lessons:
-            if not lesson.start or not lesson.end:
+        # Process each daily plan within the requested date range
+        for plan_date, timetable in timetables.items():
+            if not timetable.forms:
                 continue
 
-            # Create event on the plan date with lesson times
-            lesson_datetime = plan_datetime.replace(
-                hour=lesson.start.hour,
-                minute=lesson.start.minute,
-                second=lesson.start.second
-            )
-            lesson_end_datetime = plan_datetime.replace(
-                hour=lesson.end.hour,
-                minute=lesson.end.minute,
-                second=lesson.end.second
+            # Convert plan_date to a timezone-aware datetime
+            plan_datetime = dt_util.start_of_local_day(
+                datetime.combine(plan_date, datetime.min.time())
             )
 
-            # Check if lesson is within requested range
-            if lesson_datetime >= start_date and lesson_datetime < end_date:
-                # Create event
-                summary = str(lesson.subject) if lesson.subject else "Unbekannt"
+            # Check if the plan date is within the requested range
+            if plan_datetime < start_date or plan_datetime >= end_date:
+                continue
 
-                description_parts = []
+            # Get the first form (should be the selected one after filtering)
+            form = timetable.forms[0]
 
-                # Safely convert lesson attributes to strings
-                if lesson.teacher:
-                    try:
-                        teacher_str = str(lesson.teacher)
-                        if teacher_str and teacher_str != "None":
-                            description_parts.append(f"Lehrer: {teacher_str}")
-                    except (TypeError, ValueError):
-                        pass
+            # Generate events for each lesson on this plan date
+            for lesson in form.lessons:
+                if not lesson.start or not lesson.end:
+                    continue
 
-                if lesson.room:
-                    try:
-                        room_str = str(lesson.room)
-                        if room_str and room_str != "None":
-                            description_parts.append(f"Raum: {room_str}")
-                    except (TypeError, ValueError):
-                        pass
-
-                if lesson.information:
-                    try:
-                        info_str = str(lesson.information)
-                        if info_str and info_str != "None":
-                            description_parts.append(f"Info: {info_str}")
-                    except (TypeError, ValueError):
-                        pass
-
-                description = "\n".join(description_parts) if description_parts else None
-
-                event = CalendarEvent(
-                    start=lesson_datetime,
-                    end=lesson_end_datetime,
-                    summary=summary,
-                    description=description,
+                # Create event on the plan date with lesson times
+                lesson_datetime = plan_datetime.replace(
+                    hour=lesson.start.hour,
+                    minute=lesson.start.minute,
+                    second=lesson.start.second
+                )
+                lesson_end_datetime = plan_datetime.replace(
+                    hour=lesson.end.hour,
+                    minute=lesson.end.minute,
+                    second=lesson.end.second
                 )
 
-                events.append(event)
+                # Check if lesson is within requested range
+                if lesson_datetime >= start_date and lesson_datetime < end_date:
+                    # Create event
+                    summary = str(lesson.subject) if lesson.subject else "Unbekannt"
+
+                    description_parts = []
+
+                    # Safely convert lesson attributes to strings
+                    if lesson.teacher:
+                        try:
+                            teacher_str = str(lesson.teacher)
+                            if teacher_str and teacher_str != "None":
+                                description_parts.append(f"Lehrer: {teacher_str}")
+                        except (TypeError, ValueError):
+                            pass
+
+                    if lesson.room:
+                        try:
+                            room_str = str(lesson.room)
+                            if room_str and room_str != "None":
+                                description_parts.append(f"Raum: {room_str}")
+                        except (TypeError, ValueError):
+                            pass
+
+                    if lesson.information:
+                        try:
+                            info_str = str(lesson.information)
+                            if info_str and info_str != "None":
+                                description_parts.append(f"Info: {info_str}")
+                        except (TypeError, ValueError):
+                            pass
+
+                    description = "\n".join(description_parts) if description_parts else None
+
+                    event = CalendarEvent(
+                        start=lesson_datetime,
+                        end=lesson_end_datetime,
+                        summary=summary,
+                        description=description,
+                    )
+
+                    events.append(event)
 
         return sorted(events, key=lambda e: e.start)
