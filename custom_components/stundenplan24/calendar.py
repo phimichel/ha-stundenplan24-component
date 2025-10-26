@@ -227,7 +227,10 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
             if isinstance(event.start, datetime):
                 return event.start
             else:
-                # Convert date to datetime for sorting
-                return datetime.combine(event.start, datetime.min.time())
+                # Convert date to timezone-aware datetime for sorting
+                # All-day events should sort at midnight of that day
+                return dt_util.start_of_local_day(
+                    datetime.combine(event.start, datetime.min.time())
+                )
 
         return sorted(events, key=sort_key)
