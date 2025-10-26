@@ -9,6 +9,13 @@
           "username": "Benutzername",
           "password": "Passwort"
         }
+      },
+      "select_form": {
+        "title": "Klassenauswahl",
+        "description": "Wählen Sie die Klasse aus, deren Stundenplan angezeigt werden soll",
+        "data": {
+          "form": "Klasse"
+        }
       }
     },
     "error": {
@@ -18,6 +25,17 @@
     },
     "abort": {
       "already_configured": "Dieses Stundenplan24-Konto ist bereits konfiguriert"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Fächerfilter",
+        "description": "Wählen Sie aus, welche Fächer im Kalender angezeigt werden sollen. Abgewählte Fächer werden im Stundenplan ausgeblendet.",
+        "data": {
+          "filter_subjects": "Anzuzeigende Fächer"
+        }
+      }
     }
   }
 }

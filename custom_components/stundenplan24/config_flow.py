@@ -12,8 +12,10 @@ from homeassistant import config_entries
 from homeassistant.core import HomeAssistant
 from homeassistant.data_entry_flow import FlowResult
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers import config_validation as cv
 
 from .const import (
+    CONF_FILTER_SUBJECTS,
     CONF_FORM,
     CONF_PASSWORD,
     CONF_SCHOOL_URL,
@@ -82,6 +84,11 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Stundenplan24."""
 
     VERSION = 1
+
+    @staticmethod
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        """Get the options flow for this handler."""
+        return OptionsFlowHandler()
 
     def __init__(self) -> None:
         """Initialize config flow."""
@@ -184,6 +191,86 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         except Exception as err:
             _LOGGER.exception("Could not fetch forms")
             return []
+        finally:
+            await client.close()
+
+
+class OptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for Stundenplan24."""
+
+    async def async_step_init(
+        self, user_input: dict[str, Any] | None = None
+    ) -> FlowResult:
+        """Manage the options for subject filtering."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        # Get available subjects from the API
+        available_subjects = await self._get_available_subjects()
+
+        # Get currently configured filter
+        # If not yet configured (key doesn't exist), pre-select all subjects
+        if CONF_FILTER_SUBJECTS in self.config_entry.options:
+            current_filter = self.config_entry.options[CONF_FILTER_SUBJECTS]
+        else:
+            # Pre-select all available subjects by default
+            current_filter = list(available_subjects.keys())
+
+        # Build schema with multi-select
+        schema = vol.Schema({
+            vol.Optional(
+                CONF_FILTER_SUBJECTS,
+                description={"suggested_value": current_filter}
+            ): cv.multi_select(available_subjects)
+        })
+
+        return self.async_show_form(step_id="init", data_schema=schema)
+
+    async def _get_available_subjects(self) -> dict[str, str]:
+        """Get available subjects from the API."""
+        hosting = Hosting.deserialize({
+            "creds": {
+                "username": self.config_entry.data[CONF_USERNAME],
+                "password": self.config_entry.data[CONF_PASSWORD],
+            },
+            "endpoints": self.config_entry.data[CONF_SCHOOL_URL],
+        })
+
+        client = IndiwareStundenplanerClient(hosting=hosting)
+
+        try:
+            if client.form_plan_client is None:
+                return {}
+
+            # Fetch a plan to get available subjects
+            plan_response = await client.form_plan_client.fetch_plan()
+
+            # Parse the XML to get subjects from Unterricht block
+            from .stundenplan24_py.indiware_mobil import IndiwareMobilPlan
+            import xml.etree.ElementTree as ET
+
+            root = ET.fromstring(plan_response.content)
+            plan = IndiwareMobilPlan.from_xml(root)
+
+            # Get selected form from config
+            selected_form = self.config_entry.data.get(CONF_FORM)
+
+            # Find the form and extract subjects
+            subjects = set()
+            for form in plan.forms:
+                if selected_form and form.short_name != selected_form:
+                    continue
+
+                # Extract subjects from classes dict
+                for class_obj in form.classes.values():
+                    subjects.add(class_obj.subject)
+
+            # Return as dict with subject as both key and value (for display)
+            # Sort alphabetically for consistent UI
+            return {subject: subject for subject in sorted(subjects)}
+        except Exception as err:
+            _LOGGER.exception("Could not fetch subjects: %s", err)
+            return {}
         finally:
             await client.close()
 

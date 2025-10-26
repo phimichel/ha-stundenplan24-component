@@ -8,6 +8,7 @@ CONF_USERNAME = "username"
 CONF_PASSWORD = "password"
 CONF_STUDENT_ID = "student_id"
 CONF_FORM = "form"
+CONF_FILTER_SUBJECTS = "filter_subjects"
 
 # Default values
 DEFAULT_SCAN_INTERVAL = 30  # minutes

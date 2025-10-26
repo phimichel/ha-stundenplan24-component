@@ -12,7 +12,7 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 from homeassistant.util import dt as dt_util
 
-from .const import DOMAIN
+from .const import CONF_FILTER_SUBJECTS, DOMAIN
 from .coordinator import Stundenplan24Coordinator
 
 _LOGGER = logging.getLogger(__name__)
@@ -150,10 +150,20 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
             # Get the first form (should be the selected one after filtering)
             form = timetable.forms[0]
 
+            # Get subject filter from config entry options
+            filter_subjects = self.coordinator.entry.options.get(CONF_FILTER_SUBJECTS, [])
+
             # Generate events for each lesson on this plan date
             for lesson in form.lessons:
                 if not lesson.start or not lesson.end:
                     continue
+
+                # Apply subject filter if configured
+                if filter_subjects:
+                    # Only include lessons for filtered subjects
+                    lesson_subject = str(lesson.subject) if lesson.subject else ""
+                    if lesson_subject not in filter_subjects:
+                        continue
 
                 # Create event on the plan date with lesson times
                 lesson_datetime = plan_datetime.replace(
