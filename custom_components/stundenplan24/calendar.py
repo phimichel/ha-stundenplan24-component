@@ -190,4 +190,44 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
 
                     events.append(event)
 
-        return sorted(events, key=lambda e: e.start)
+        # Add all-day events for ZusatzInfo (additional info)
+        for plan_date, timetable in timetables.items():
+            # Convert plan_date to a timezone-aware datetime
+            plan_datetime = dt_util.start_of_local_day(
+                datetime.combine(plan_date, datetime.min.time())
+            )
+
+            # Check if the plan date is within the requested range
+            if plan_datetime < start_date or plan_datetime >= end_date:
+                continue
+
+            # Check if there's additional info for this day
+            if timetable.additional_info:
+                # Filter out empty lines
+                info_lines = [line for line in timetable.additional_info if line.strip()]
+
+                if info_lines:
+                    # Create all-day event
+                    # All-day events in Home Assistant: start and end as date objects
+                    summary = "Informationen"
+                    description = "\n".join(info_lines)
+
+                    event = CalendarEvent(
+                        start=plan_date,  # Use date object for all-day events
+                        end=plan_date + timedelta(days=1),
+                        summary=summary,
+                        description=description,
+                    )
+
+                    events.append(event)
+
+        # Sort events - handle mixed datetime and date objects
+        def sort_key(event):
+            """Sort key that handles both datetime and date objects."""
+            if isinstance(event.start, datetime):
+                return event.start
+            else:
+                # Convert date to datetime for sorting
+                return datetime.combine(event.start, datetime.min.time())
+
+        return sorted(events, key=sort_key)

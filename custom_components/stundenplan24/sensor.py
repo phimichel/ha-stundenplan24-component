@@ -1,7 +1,7 @@
 """Platform for sensor integration."""
 from __future__ import annotations
 
-from datetime import datetime, time
+from datetime import datetime, date, time, timedelta
 import logging
 from typing import Any
 
@@ -42,6 +42,7 @@ async def async_setup_entry(
         Stundenplan24SubstitutionsTodaySensor(coordinator),
         Stundenplan24SubstitutionsTomorrowSensor(coordinator),
         Stundenplan24NextLessonSensor(coordinator),
+        Stundenplan24AdditionalInfoSensor(coordinator),
     ]
 
     async_add_entities(sensors)
@@ -275,5 +276,89 @@ class Stundenplan24NextLessonSensor(Stundenplan24Sensor):
             attrs["course"] = lesson.course2
         if lesson.information:
             attrs["info"] = lesson.information
+
+        return attrs
+
+
+class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
+    """Sensor for additional info (ZusatzInfo) from timetables."""
+
+    def __init__(self, coordinator: Stundenplan24Coordinator) -> None:
+        """Initialize the sensor."""
+        super().__init__(coordinator, "additional_info")
+        self._attr_name = "Zusatzinformationen"
+        self._attr_icon = "mdi:information-outline"
+
+    def _get_info_for_date(self, target_date: date) -> list[str] | None:
+        """Get ZusatzInfo for a specific date."""
+        if not self.coordinator.data:
+            return None
+
+        # Try new multi-day structure first
+        timetables = self.coordinator.data.get("timetables", {})
+
+        if timetables and target_date in timetables:
+            plan = timetables[target_date]
+            if plan.additional_info:
+                # Filter out empty lines
+                return [line for line in plan.additional_info if line.strip()]
+
+        # Fallback to single timetable for today
+        timetable = self.coordinator.data.get("timetable")
+        if timetable and timetable.date == target_date:
+            if timetable.additional_info:
+                return [line for line in timetable.additional_info if line.strip()]
+
+        return None
+
+    @property
+    def native_value(self) -> str | None:
+        """Return the status of additional info."""
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+
+        today_info = self._get_info_for_date(today)
+        tomorrow_info = self._get_info_for_date(tomorrow)
+
+        count = 0
+        if today_info:
+            count += 1
+        if tomorrow_info:
+            count += 1
+
+        if count == 0:
+            return "Keine Informationen"
+        elif count == 1:
+            return "1 Tag mit Informationen"
+        else:
+            return f"{count} Tage mit Informationen"
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        """Return additional attributes."""
+        today = datetime.now().date()
+        tomorrow = today + timedelta(days=1)
+
+        attrs = {}
+
+        # Today's info
+        today_info = self._get_info_for_date(today)
+        if today_info:
+            attrs["today"] = "\n".join(today_info)
+            attrs["today_lines"] = today_info
+            attrs["today_date"] = str(today)
+        else:
+            attrs["today"] = None
+            attrs["today_lines"] = []
+
+        # Tomorrow's info
+        tomorrow_info = self._get_info_for_date(tomorrow)
+        if tomorrow_info:
+            attrs["tomorrow"] = "\n".join(tomorrow_info)
+            attrs["tomorrow_lines"] = tomorrow_info
+            attrs["tomorrow_date"] = str(tomorrow)
+        else:
+            attrs["tomorrow"] = None
+            attrs["tomorrow_lines"] = []
 
         return attrs
