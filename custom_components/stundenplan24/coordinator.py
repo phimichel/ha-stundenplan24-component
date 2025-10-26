@@ -133,12 +133,22 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                         fetch_errors = {}
                         selected_form = self.entry.data.get(CONF_FORM)
 
-                        # Get up to 7 most recent plan files
-                        files_to_fetch = list(available_dates.keys())[:7]
+                        # Sort files by date (most recent first) and get up to 7
+                        # available_dates is a dict: {filename: last_modified_datetime}
+                        sorted_files = sorted(
+                            available_dates.keys(),
+                            key=lambda f: available_dates[f],
+                            reverse=True  # Most recent first
+                        )
+                        files_to_fetch = sorted_files[:7]
 
                         _LOGGER.debug(
-                            "Available plan files from API (%d total, fetching first 7): %s",
+                            "Available plan files from API (%d total): %s",
                             len(available_dates),
+                            list(available_dates.keys())
+                        )
+                        _LOGGER.debug(
+                            "Sorted by date (most recent first), fetching first 7: %s",
                             files_to_fetch
                         )
 
