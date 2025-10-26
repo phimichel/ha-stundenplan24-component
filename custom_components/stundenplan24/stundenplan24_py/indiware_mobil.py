@@ -97,7 +97,8 @@ class Form:
 
         # parse periods
         form.periods = {}
-        for period in xml.find("KlStunden") or []:
+        kl_stunden = xml.find("KlStunden")
+        for period in (kl_stunden if kl_stunden is not None else []):
             start, end = period.attrib["ZeitVon"].strip(), period.attrib["ZeitBis"].strip()
             try:
                 start = datetime.datetime.strptime(start, "%H:%M").time()
@@ -111,13 +112,15 @@ class Form:
 
         # parse courses
         form.courses = {}
-        for _course in xml.find("Kurse") or []:
+        kurse = xml.find("Kurse")
+        for _course in (kurse if kurse is not None else []):
             course = _course.find("KKz")
             form.courses |= {course.text: course.attrib["KLe"]}
 
         # parse classes
         form.classes = {}
-        for _class in xml.find("Unterricht") or []:
+        unterricht = xml.find("Unterricht")
+        for _class in (unterricht if unterricht is not None else []):
             class_ = _class.find("UeNr")
             class_obj = Class(
                 teacher=class_.attrib["UeLe"],
@@ -133,12 +136,14 @@ class Form:
 
         # parse exams
         form.exams = []
-        for _exam in xml.find("Klausuren") or []:
+        klausuren = xml.find("Klausuren")
+        for _exam in (klausuren if klausuren is not None else []):
             form.exams.append(Exam.from_xml_indiware_mobile(_exam))
 
         # parse break supervisions
         form.break_supervisions = []
-        for _break_supervision in xml.find("Aufsichten") or []:
+        aufsichten = xml.find("Aufsichten")
+        for _break_supervision in (aufsichten if aufsichten is not None else []):
             form.break_supervisions.append(BreakSupervision.from_xml(_break_supervision))
 
         return form
