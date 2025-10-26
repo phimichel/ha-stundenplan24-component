@@ -1,6 +1,7 @@
 """DataUpdateCoordinator for stundenplan24."""
 from __future__ import annotations
 
+from asyncio import Lock
 from datetime import datetime, timedelta
 import logging
 from typing import Any
@@ -13,6 +14,7 @@ from homeassistant.helpers.update_coordinator import (
     DataUpdateCoordinator,
     UpdateFailed,
 )
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_FORM,
@@ -33,6 +35,7 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
         """Initialize coordinator."""
         self.entry = entry
         self.client: IndiwareStundenplanerClient | None = None
+        self._setup_lock = Lock()
 
         # Store config data
         self.school_url = entry.data[CONF_SCHOOL_URL]
@@ -47,20 +50,25 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
         )
 
     async def _async_setup(self) -> None:
-        """Set up the coordinator."""
-        # Create hosting object using deserialize method
-        hosting = Hosting.deserialize({
-            "creds": {
-                "username": self.username,
-                "password": self.password,
-            },
-            "endpoints": self.school_url,
-        })
+        """Set up the coordinator with double-check locking."""
+        async with self._setup_lock:
+            # Double-check pattern to prevent multiple initializations
+            if self.client is not None:
+                return
 
-        # Initialize client
-        self.client = IndiwareStundenplanerClient(hosting=hosting)
+            # Create hosting object using deserialize method
+            hosting = Hosting.deserialize({
+                "creds": {
+                    "username": self.username,
+                    "password": self.password,
+                },
+                "endpoints": self.school_url,
+            })
 
-        _LOGGER.debug("Stundenplan24 client initialized for %s", self.school_url)
+            # Initialize client
+            self.client = IndiwareStundenplanerClient(hosting=hosting)
+
+            _LOGGER.debug("Stundenplan24 client initialized for %s", self.school_url)
 
     async def _async_update_data(self) -> dict[str, Any]:
         """Fetch data from API endpoint.
@@ -79,7 +87,7 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
             substitution_clients = list(self.client.substitution_plan_clients)
 
             # Fetch substitution plan for today
-            today = datetime.now().date()
+            today = dt_util.now().date()
             tomorrow = today + timedelta(days=1)
 
             _LOGGER.debug("Fetching substitution plans for %s and %s", today, tomorrow)
@@ -122,6 +130,7 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                         # Fetch plans for up to 7 days (for weekly calendar view)
                         # Each plan file contains all forms, so we only fetch once per day
                         plans_by_date = {}
+                        fetch_errors = {}
                         selected_form = self.entry.data.get(CONF_FORM)
 
                         # Get up to 7 most recent plan files
@@ -133,8 +142,18 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                                     date_or_filename=filename
                                 )
 
+                                # Validate XML content before parsing
+                                content = plan_response.content
+                                # Handle both bytes and string content
+                                if isinstance(content, bytes):
+                                    if not content.strip().startswith(b'<?xml') and not content.strip().startswith(b'<'):
+                                        raise ValueError("Response is not XML")
+                                else:
+                                    if not content.strip().startswith('<?xml') and not content.strip().startswith('<'):
+                                        raise ValueError("Response is not XML")
+
                                 # Parse XML to IndiwareMobilPlan
-                                root = ET.fromstring(plan_response.content)
+                                root = ET.fromstring(content)
                                 plan = IndiwareMobilPlan.from_xml(root)
 
                                 # Filter to selected form if configured
@@ -153,7 +172,16 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                                     plan.date,
                                     len(plan.forms)
                                 )
+                            except ET.ParseError as err:
+                                fetch_errors[filename] = f"XML parse error: {err}"
+                                _LOGGER.error("Failed to parse XML for %s: %s", filename, err)
+                                continue
+                            except ValueError as err:
+                                fetch_errors[filename] = str(err)
+                                _LOGGER.error("Invalid content for %s: %s", filename, err)
+                                continue
                             except Exception as err:
+                                fetch_errors[filename] = str(err)
                                 _LOGGER.warning(
                                     "Could not fetch plan %s: %s",
                                     filename,
@@ -164,6 +192,16 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
                         if plans_by_date:
                             # Store all plans indexed by date
                             data["timetables"] = plans_by_date
+
+                            # Store fetch errors for diagnostics
+                            if fetch_errors:
+                                data["timetable_fetch_errors"] = fetch_errors
+                                _LOGGER.info(
+                                    "Fetched %d of %d timetables successfully, %d errors",
+                                    len(plans_by_date),
+                                    len(files_to_fetch),
+                                    len(fetch_errors)
+                                )
 
                             # For backward compatibility, also store the most recent plan
                             # as "timetable" (for existing sensors that expect it)

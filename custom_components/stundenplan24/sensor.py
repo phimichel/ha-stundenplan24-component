@@ -10,6 +10,7 @@ from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
+from homeassistant.util import dt as dt_util
 
 from .const import (
     ATTR_ROOM,
@@ -223,7 +224,7 @@ class Stundenplan24NextLessonSensor(Stundenplan24Sensor):
         if not timetable or not timetable.forms:
             return None
 
-        now = datetime.now()
+        now = dt_util.now()
         current_time = now.time()
 
         # Get the first form (assuming single student view)
@@ -347,7 +348,7 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
     @property
     def native_value(self) -> str | None:
         """Return the status of additional info."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         tomorrow = today + timedelta(days=1)
 
         today_info = self._get_info_for_date(today)
@@ -369,7 +370,7 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         """Return additional attributes."""
-        today = datetime.now().date()
+        today = dt_util.now().date()
         tomorrow = today + timedelta(days=1)
 
         attrs = {}

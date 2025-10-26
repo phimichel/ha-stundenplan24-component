@@ -46,10 +46,10 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         "endpoints": data[CONF_SCHOOL_URL],
     })
 
+    client = IndiwareStundenplanerClient(hosting=hosting)
+
     # Try to create client and fetch data
     try:
-        client = IndiwareStundenplanerClient(hosting=hosting)
-
         # Try to fetch available dates to validate connection
         mobil_clients = list(client.indiware_mobil_clients)
         substitution_clients = list(client.substitution_plan_clients)
@@ -62,8 +62,6 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
         else:
             raise CannotConnect("No clients available")
 
-        await client.close()
-
     except aiohttp.ClientResponseError as err:
         if err.status == 401:
             raise InvalidAuth from err
@@ -73,6 +71,8 @@ async def validate_input(hass: HomeAssistant, data: dict[str, Any]) -> dict[str,
     except Exception as err:
         _LOGGER.exception("Unexpected error during validation")
         raise CannotConnect from err
+    finally:
+        await client.close()
 
     # Return info that you want to store in the config entry.
     return {"title": data[CONF_SCHOOL_URL]}
@@ -165,11 +165,10 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         client = IndiwareStundenplanerClient(hosting=hosting)
 
-        if client.form_plan_client is None:
-            await client.close()
-            return []
-
         try:
+            if client.form_plan_client is None:
+                return []
+
             # Fetch a plan to get available forms
             plan_response = await client.form_plan_client.fetch_plan()
 
@@ -181,13 +180,12 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             plan = IndiwareMobilPlan.from_xml(root)
 
             forms = [form.short_name for form in plan.forms]
-            await client.close()
-
             return forms
         except Exception as err:
             _LOGGER.exception("Could not fetch forms")
-            await client.close()
             return []
+        finally:
+            await client.close()
 
 
 class CannotConnect(HomeAssistantError):
