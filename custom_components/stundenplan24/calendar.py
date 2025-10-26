@@ -199,7 +199,8 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
                         except (TypeError, ValueError):
                             pass
 
-                    description = "\n".join(description_parts) if description_parts else None
+                    # Use double newlines for better formatting in calendar display
+                    description = "\n\n".join(description_parts) if description_parts else None
 
                     event = CalendarEvent(
                         start=lesson_datetime,
