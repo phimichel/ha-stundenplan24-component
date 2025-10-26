@@ -203,8 +203,8 @@ class Stundenplan24Calendar(CoordinatorEntity, CalendarEntity):
 
             # Check if there's additional info for this day
             if timetable.additional_info:
-                # Filter out empty lines
-                info_lines = [line for line in timetable.additional_info if line.strip()]
+                # Filter out empty lines and None values
+                info_lines = [line for line in timetable.additional_info if line and line.strip()]
 
                 if info_lines:
                     # Create all-day event

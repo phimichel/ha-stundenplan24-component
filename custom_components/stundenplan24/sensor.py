@@ -300,14 +300,14 @@ class Stundenplan24AdditionalInfoSensor(Stundenplan24Sensor):
         if timetables and target_date in timetables:
             plan = timetables[target_date]
             if plan.additional_info:
-                # Filter out empty lines
-                return [line for line in plan.additional_info if line.strip()]
+                # Filter out empty lines and None values
+                return [line for line in plan.additional_info if line and line.strip()]
 
         # Fallback to single timetable for today
         timetable = self.coordinator.data.get("timetable")
         if timetable and timetable.date == target_date:
             if timetable.additional_info:
-                return [line for line in timetable.additional_info if line.strip()]
+                return [line for line in timetable.additional_info if line and line.strip()]
 
         return None
 
