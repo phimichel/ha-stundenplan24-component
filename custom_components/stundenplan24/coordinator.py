@@ -135,8 +135,14 @@ class Stundenplan24Coordinator(DataUpdateCoordinator):
 
                         # Sort files by date (most recent first) and get up to 7
                         # available_dates is a dict: {filename: last_modified_datetime}
+                        # Filter out generic files like Klassen.xml that may duplicate dated plans
+                        specific_plan_files = [
+                            f for f in available_dates.keys()
+                            if f.startswith('PlanKl') and f.endswith('.xml')
+                        ]
+
                         sorted_files = sorted(
-                            available_dates.keys(),
+                            specific_plan_files,
                             key=lambda f: available_dates[f],
                             reverse=True  # Most recent first
                         )
